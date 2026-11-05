@@ -6,27 +6,28 @@
 <meta name="theme-color" content="#0C1033">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>UZEX AI-Agent · Birja Bitimlari Tahlili 2022–2026</title>
+<title>UZEX Spot Data AI-Agent · 2022–2026</title>
 <!-- Telegram WebApp SDK -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #0C1033;
   --bg-card: #141B4D;
-  --bg-subtle: #1B2464;
-  --surface: #101642;
+  --bg-card-hover: #19225E;
+  --bg-subtle: #1A2361;
+  --surface: #0E143D;
   --neon: #3DF08A;
-  --neon-glow: rgba(61, 240, 138, 0.25);
-  --blue-primary: #3A55C8;
-  --blue-light: #5E79E8;
+  --neon-glow: rgba(61, 240, 138, 0.28);
+  --blue-primary: #3855D6;
+  --blue-hover: #4866E8;
   --peri: #C9D3FF;
   --peri-muted: #8E9ECF;
   --text-main: #FFFFFF;
   --border: rgba(201, 211, 255, 0.16);
-  --border-focus: rgba(61, 240, 138, 0.5);
+  --border-focus: rgba(61, 240, 138, 0.6);
   --err: #FF5A65;
   --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
@@ -42,13 +43,13 @@ html, body {
   background: var(--bg);
   color: var(--text-main);
   font-family: var(--font-main);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 14.5px;
+  line-height: 1.5;
   overflow: hidden;
 }
 
 .app {
-  max-width: 960px;
+  max-width: 980px;
   margin: 0 auto;
   height: 100vh;
   height: 100dvh;
@@ -59,57 +60,64 @@ html, body {
 
 /* Header */
 header {
-  padding: 18px 0 14px;
+  padding: 12px 0 10px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 .brand-logo {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--blue-primary), var(--neon));
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-weight: 700;
+  font-weight: 800;
   color: #0C1033;
-  font-size: 1.1rem;
-  box-shadow: 0 0 16px var(--neon-glow);
+  font-size: 1.05rem;
+  box-shadow: 0 0 14px var(--neon-glow);
 }
 .brand-title h1 {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.brand-title h1 span {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: rgba(61, 240, 138, 0.15);
+  color: var(--neon);
+  border-radius: 4px;
+  font-family: var(--font-mono);
 }
 .brand-title p {
   color: var(--peri-muted);
-  font-size: 0.8rem;
-  margin-top: 1px;
+  font-size: 0.76rem;
 }
 .badges {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
 .badge {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.70rem;
   text-transform: uppercase;
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
   background: rgba(201, 211, 255, 0.08);
   border: 1px solid var(--border);
@@ -119,7 +127,7 @@ header {
   gap: 5px;
 }
 .badge.active {
-  border-color: rgba(61, 240, 138, 0.4);
+  border-color: rgba(61, 240, 138, 0.45);
   color: var(--neon);
 }
 .badge.active::before {
@@ -131,93 +139,156 @@ header {
   box-shadow: 0 0 6px var(--neon);
 }
 
-/* Chat container */
-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 0;
-  scroll-behavior: smooth;
-}
-main::-webkit-scrollbar { width: 6px; }
-main::-webkit-scrollbar-thumb { background: rgba(201, 211, 255, 0.15); border-radius: 4px; }
-
-/* Welcome Card */
-.welcome-card {
-  background: linear-gradient(180deg, rgba(27, 36, 100, 0.6) 0%, rgba(20, 27, 77, 0.4) 100%);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-}
-.welcome-card h2 {
-  font-size: 1.25rem;
-  color: #fff;
-  margin-bottom: 8px;
-  font-weight: 700;
-}
-.welcome-card p {
-  color: var(--peri);
-  font-size: 0.92rem;
-  margin-bottom: 16px;
-  line-height: 1.5;
-}
-.rules-grid {
+/* TOP KPI BAR */
+.kpi-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px;
-  margin-bottom: 18px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(201, 211, 255, 0.08);
 }
-.rule-item {
-  background: rgba(12, 16, 51, 0.5);
-  border: 1px solid rgba(201, 211, 255, 0.1);
-  padding: 10px 12px;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  color: var(--peri);
-}
-.rule-item strong { color: var(--neon); }
-
-.prompt-list-title {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  color: var(--peri-muted);
-  letter-spacing: 0.05em;
-  margin-bottom: 10px;
-}
-.prompt-chips {
+.kpi-card {
+  background: linear-gradient(180deg, rgba(20, 27, 77, 0.7) 0%, rgba(14, 20, 61, 0.5) 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+.kpi-num {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--neon);
+  letter-spacing: -0.02em;
+}
+.kpi-label {
+  font-size: 0.72rem;
+  color: var(--peri-muted);
+  margin-top: 1px;
+}
+
+/* NAVIGATION TABS */
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--peri-muted);
+  font-family: var(--font-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tab-btn:hover {
+  color: #fff;
+  background: rgba(201, 211, 255, 0.06);
+}
+.tab-btn.active {
+  background: var(--blue-primary);
+  color: #fff;
+  border-color: var(--blue-hover);
+  box-shadow: 0 2px 10px rgba(56, 85, 214, 0.35);
+}
+
+/* TAB CONTENT AREAS */
+.tab-pane {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.tab-pane.active {
+  display: flex;
+  flex-direction: column;
+}
+.tab-pane::-webkit-scrollbar { width: 6px; }
+.tab-pane::-webkit-scrollbar-thumb { background: rgba(201, 211, 255, 0.15); border-radius: 4px; }
+
+/* CHAT TAB */
+#tab-chat {
+  padding: 12px 0 0;
+}
+.chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Quick Filter Pills */
+.filter-pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-pills::-webkit-scrollbar { display: none; }
+.pill-btn {
+  background: rgba(201, 211, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--peri);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.pill-btn:hover, .pill-btn.active {
+  background: rgba(61, 240, 138, 0.15);
+  border-color: var(--neon);
+  color: var(--neon);
+}
+
+/* Prompt Chips Grid */
+.chips-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
 }
 .chip {
-  background: rgba(58, 85, 200, 0.15);
-  border: 1px solid rgba(94, 121, 232, 0.25);
-  color: #E2E8FF;
-  padding: 10px 14px;
+  background: rgba(27, 36, 100, 0.5);
+  border: 1px solid rgba(201, 211, 255, 0.14);
+  color: #DDE5FF;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 .chip:hover {
-  background: rgba(58, 85, 200, 0.35);
+  background: rgba(56, 85, 214, 0.3);
   border-color: var(--neon);
-  transform: translateX(3px);
-  color: #FFFFFF;
+  color: #fff;
+  transform: translateX(2px);
 }
-.chip .ar { color: var(--neon); font-size: 1.1rem; }
+.chip .ar { color: var(--neon); font-weight: bold; }
 
 /* Messages */
 .msg {
-  margin-bottom: 24px;
-  animation: fadeIn 0.25s ease-out;
+  margin-bottom: 16px;
+  animation: fadeIn 0.2s ease-out;
 }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 .msg-user {
   display: flex;
@@ -227,41 +298,41 @@ main::-webkit-scrollbar-thumb { background: rgba(201, 211, 255, 0.15); border-ra
   background: var(--blue-primary);
   color: #fff;
   border-radius: 12px 12px 2px 12px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   max-width: 85%;
   font-weight: 500;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .msg-agent .bubble {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px 12px 12px 2px;
-  padding: 16px 20px;
+  padding: 14px 16px;
   max-width: 95%;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 .msg-agent .answer-text {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   white-space: pre-wrap;
   word-break: break-word;
 }
-.msg-agent .answer-text b, .msg-agent .answer-text strong {
+.msg-agent .answer-text strong, .msg-agent .answer-text b {
   color: var(--neon);
   font-weight: 600;
 }
 
-/* Footer / Meta under agent answer */
 .msg-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  padding-top: 10px;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(201, 211, 255, 0.08);
   font-family: var(--font-mono);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: var(--peri-muted);
+  flex-wrap: wrap;
 }
 .meta-tag {
   background: rgba(201, 211, 255, 0.06);
@@ -269,24 +340,23 @@ main::-webkit-scrollbar-thumb { background: rgba(201, 211, 255, 0.15); border-ra
   border-radius: 4px;
 }
 
-/* Details / Basis Accordion */
+/* Details Basis */
 details.basis {
   margin-top: 10px;
-  background: rgba(12, 16, 51, 0.6);
+  background: rgba(12, 16, 51, 0.65);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 details.basis summary {
-  padding: 9px 14px;
+  padding: 7px 12px;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--peri);
   cursor: pointer;
   user-select: none;
   background: rgba(201, 211, 255, 0.04);
   display: flex;
-  align-items: center;
   justify-content: space-between;
 }
 details.basis summary:hover {
@@ -294,13 +364,13 @@ details.basis summary:hover {
   color: #fff;
 }
 details.basis pre {
-  padding: 12px 14px;
+  padding: 10px 12px;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font-size: 0.74rem;
   color: #B5E4FF;
   overflow-x: auto;
   white-space: pre-wrap;
+  line-height: 1.4;
 }
 
 /* Loading state */
@@ -310,11 +380,11 @@ details.basis pre {
   gap: 10px;
   color: var(--neon);
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 .spinner {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(61, 240, 138, 0.2);
   border-top-color: var(--neon);
   border-radius: 50%;
@@ -325,8 +395,8 @@ details.basis pre {
 /* Input bar */
 form.chat-input {
   display: flex;
-  gap: 10px;
-  padding: 16px 0 20px;
+  gap: 8px;
+  padding: 10px 0 max(10px, var(--sab));
   border-top: 1px solid var(--border);
   align-items: flex-end;
 }
@@ -334,39 +404,39 @@ textarea.input-box {
   flex: 1;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
+  border-radius: 8px;
+  padding: 10px 14px;
   color: #fff;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.90rem;
   resize: none;
-  min-height: 48px;
-  max-height: 140px;
+  min-height: 44px;
+  max-height: 120px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 textarea.input-box:focus {
   border-color: var(--neon);
-  box-shadow: 0 0 12px var(--neon-glow);
+  box-shadow: 0 0 10px var(--neon-glow);
 }
 .btn-send {
   background: var(--neon);
   color: #0C1033;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 700;
-  font-size: 0.92rem;
-  padding: 0 22px;
-  height: 48px;
+  font-size: 0.88rem;
+  padding: 0 18px;
+  height: 44px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 .btn-send:hover:not(:disabled) {
   background: #fff;
-  transform: translateY(-1px);
 }
 .btn-send:disabled {
   opacity: 0.4;
@@ -376,147 +446,139 @@ textarea.input-box:focus {
   background: transparent;
   color: var(--peri-muted);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  height: 48px;
-  padding: 0 14px;
+  border-radius: 8px;
+  height: 44px;
+  padding: 0 10px;
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-family: var(--font-mono);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 .btn-clear:hover {
   color: #fff;
   border-color: var(--peri);
 }
 
+/* TAB 2: YILLAR DINAMIKASI */
+.table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.86rem;
+}
+.data-table th {
+  background: rgba(201, 211, 255, 0.06);
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  color: var(--peri);
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(201, 211, 255, 0.06);
+  color: #E2E8FF;
+}
+.data-table tr:hover td {
+  background: rgba(56, 85, 214, 0.1);
+}
+.action-link {
+  color: var(--neon);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.action-link:hover {
+  text-decoration: underline;
+}
+
+/* TAB 3: TOP REYTINGLAR */
+.ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.rank-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+.rank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(201, 211, 255, 0.08);
+}
+.rank-header h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rank-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(201, 211, 255, 0.06);
+  font-size: 0.82rem;
+}
+.rank-item:last-child { border-bottom: none; }
+.rank-item span.name { color: #DDE5FF; }
+.rank-item span.val { font-family: var(--font-mono); color: var(--neon); font-weight: 600; }
+
+/* Responsive */
 @media (max-width: 640px) {
-  .app {
-    padding-left: max(10px, var(--sal));
-    padding-right: max(10px, var(--sar));
+  .kpi-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
   }
-  header {
-    padding: 10px 0 8px;
-    gap: 8px;
-  }
-  .brand-logo {
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
-    border-radius: 6px;
-  }
-  .brand-title h1 {
-    font-size: 0.98rem;
-  }
-  .brand-title p {
-    font-size: 0.72rem;
-  }
-  .badges {
-    width: 100%;
-    overflow-x: auto;
-    white-space: nowrap;
-    padding-bottom: 2px;
-    gap: 5px;
-    -webkit-overflow-scrolling: touch;
-  }
+  .kpi-card { padding: 6px 10px; }
+  .kpi-num { font-size: 1.0rem; }
+  .kpi-label { font-size: 0.68rem; }
+  .badges { width: 100%; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
   .badges::-webkit-scrollbar { display: none; }
-  .badge {
-    font-size: 0.68rem;
-    padding: 3px 6px;
-  }
-  .welcome-card {
-    padding: 14px 12px;
-    margin-bottom: 14px;
-    border-radius: 10px;
-  }
-  .welcome-card h2 {
-    font-size: 1.05rem;
-  }
-  .welcome-card p {
-    font-size: 0.82rem;
-    margin-bottom: 10px;
-  }
-  .rules-grid {
-    grid-template-columns: 1fr;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-  .rule-item {
-    font-size: 0.78rem;
-    padding: 6px 10px;
-  }
-  .prompt-chips {
-    gap: 6px;
-  }
-  .chip {
-    padding: 8px 10px;
-    font-size: 0.82rem;
-    min-height: 40px;
-  }
-  main {
-    padding: 10px 0;
-  }
-  .msg {
-    margin-bottom: 14px;
-  }
-  .msg-user .bubble {
-    max-width: 90%;
-    padding: 10px 12px;
-    font-size: 0.88rem;
-  }
-  .msg-agent .bubble {
-    max-width: 100%;
-    padding: 12px 12px;
-  }
-  .msg-agent .answer-text {
-    font-size: 0.88rem;
-  }
-  .msg-meta {
-    flex-wrap: wrap;
-    gap: 6px;
-    font-size: 0.70rem;
-    margin-top: 8px;
-    padding-top: 8px;
-  }
-  details.basis summary {
-    padding: 7px 10px;
-    font-size: 0.72rem;
-  }
-  details.basis pre {
-    padding: 8px 10px;
-    font-size: 0.70rem;
-  }
-  form.chat-input {
-    padding: 8px 0 max(10px, var(--sab));
-    gap: 6px;
-  }
-  textarea.input-box {
-    padding: 9px 12px;
-    font-size: 0.88rem;
-    min-height: 42px;
-  }
-  .btn-send {
-    height: 42px;
-    padding: 0 14px;
-    font-size: 0.82rem;
-    white-space: nowrap;
-  }
-  .btn-clear {
-    height: 42px;
-    padding: 0 8px;
-    font-size: 0.74rem;
-    white-space: nowrap;
-  }
+  .badge { font-size: 0.65rem; }
+  .tab-btn { padding: 5px 10px; font-size: 0.78rem; }
+  .chips-container { grid-template-columns: 1fr; }
+  .msg-user .bubble { max-width: 90%; font-size: 0.86rem; padding: 8px 12px; }
+  .msg-agent .bubble { max-width: 100%; padding: 10px 12px; }
+  .msg-agent .answer-text { font-size: 0.86rem; }
+  form.chat-input { padding: 8px 0 max(8px, var(--sab)); gap: 6px; }
+  .btn-send { height: 42px; padding: 0 12px; font-size: 0.82rem; }
+  .btn-clear { height: 42px; padding: 0 8px; font-size: 0.72rem; }
 }
 </style>
 </head>
 <body>
 <div class="app">
+  <!-- Header -->
   <header>
     <div class="brand">
       <div class="brand-logo">UZ</div>
       <div class="brand-title">
-        <h1>UZEX AI-Agent <span>2026</span></h1>
-        <p>Birja bitimlari reyestri bo'yicha tahliliy AI-agent</p>
+        <h1>UZEX AI-Agent <span>2022–2026</span></h1>
+        <p>Birja bitimlari reyestri bo'yicha tahliliy tizim</p>
       </div>
     </div>
     <div class="badges">
@@ -526,59 +588,170 @@ textarea.input-box:focus {
     </div>
   </header>
 
-  <main id="chat-stream">
-    <div class="welcome-card" id="welcome-card">
-      <h2>Birja bitimlari reyestri bo‘yicha savol bering</h2>
-      <p>Agent 2022-yil 3-yanvardan 2026-yil 30-oktabrgacha bo‘lgan <b>500 000 ta</b> bitim bo‘yicha rus va o‘zbek tillarida faqat faktlar asosida javob beradi. Raqamlar to‘qilmaydi, ma’lumot bo‘lmasa to‘g‘ridan-to‘g‘ri aytiladi.</p>
-      
-      <div class="rules-grid">
-        <div class="rule-item">⚡ <strong>Deterministik:</strong> Barcha raqamlar xavfsiz SQL bilan hisoblanadi.</div>
-        <div class="rule-item">🔍 <strong>Asos ko‘rinadi:</strong> Har bir javob tagida hisoblash kodi ko‘rsatiladi.</div>
-        <div class="rule-item">🌐 <strong>RU + UZ:</strong> Savol qaysi tilda berilsa, shu tilda javob qaytadi.</div>
+  <!-- KPI Top Bar -->
+  <div class="kpi-bar">
+    <div class="kpi-card">
+      <div class="kpi-num">500 000</div>
+      <div class="kpi-label">Jami birja bitimlari</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-num">~180+ Trln</div>
+      <div class="kpi-label">5 yillik aylanma (UZS)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-num">40+ Tovar</div>
+      <div class="kpi-label">Sement, Paxta, Neft...</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-num">$253.9M</div>
+      <div class="kpi-label">Eksport hajmi (USD)</div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-chat">💬 AI Maslahatchi</button>
+    <button class="tab-btn" data-tab="tab-years">📊 Yillar Dinamikasi</button>
+    <button class="tab-btn" data-tab="tab-ranks">🏆 TOP Reytinglar</button>
+  </div>
+
+  <!-- TAB 1: CHAT -->
+  <div class="tab-pane active" id="tab-chat">
+    <div class="chat-scroll" id="chat-stream">
+      <!-- Filter Pills -->
+      <div class="filter-pills" id="filter-pills">
+        <button class="pill-btn active" data-cat="all">Barchasi</button>
+        <button class="pill-btn" data-cat="years">📅 Yillar</button>
+        <button class="pill-btn" data-cat="products">🌾 Mahsulotlar</button>
+        <button class="pill-btn" data-cat="companies">🏢 Korxonalar</button>
+        <button class="pill-btn" data-cat="export">🌍 Eksport</button>
       </div>
 
-      <div class="prompt-list-title">Namunaviy sinov savollari (tanlash uchun bosing):</div>
-      <div class="prompt-chips">
-        <button class="chip" type="button">
+      <!-- Quick Chips Grid -->
+      <div class="chips-container" id="chips-container">
+        <button class="chip" data-cat="years" type="button">
           <span>2024-yilda nechta bitim tuzilgan va umumiy summasi qancha?</span>
           <span class="ar">→</span>
         </button>
-        <button class="chip" type="button">
-          <span>Какой товар принёс наибольшую сумму сделок за 2025 год?</span>
+        <button class="chip" data-cat="products" type="button">
+          <span>2025-yilda eng ko'p summa keltirgan mahsulot qaysi?</span>
           <span class="ar">→</span>
         </button>
-        <button class="chip" type="button">
-          <span>Eng ko‘p xarid qilgan kompaniya kim (STIR va bitimlar soni bilan)?</span>
+        <button class="chip" data-cat="companies" type="button">
+          <span>Eng ko‘p xarid qilgan kompaniya kim (STIR bilan)?</span>
           <span class="ar">→</span>
         </button>
-        <button class="chip" type="button">
-          <span>Сколько сделок аннулировано в 2023 году?</span>
+        <button class="chip" data-cat="export" type="button">
+          <span>2026-yilda eksport bitimlari hajmi va dollar summasi?</span>
           <span class="ar">→</span>
         </button>
-        <button class="chip" type="button">
+        <button class="chip" data-cat="years" type="button">
+          <span>2022-yilda birinchi bitimni kim boshlab bergan?</span>
+          <span class="ar">→</span>
+        </button>
+        <button class="chip" data-cat="years" type="button">
+          <span>2023-yilda qancha bitim bekor qilingan (annulled)?</span>
+          <span class="ar">→</span>
+        </button>
+        <button class="chip" data-cat="years" type="button">
           <span>2027-yilda nechta bitim tuzilgan? (Salbiy test: yo'q ma'lumot)</span>
           <span class="ar">→</span>
         </button>
       </div>
     </div>
-  </main>
 
-  <form class="chat-input" id="chat-form">
-    <button type="button" class="btn-clear" id="btn-reset" title="Suhbat tarixini tozalash">Tarixni tozalash</button>
-    <textarea class="input-box" id="user-input" rows="1" placeholder="Savolingizni o'zbek yoki rus tilida yozing… (Enter — yuborish)"></textarea>
-    <button class="btn-send" id="btn-submit" type="submit">Yuborish ➔</button>
-  </form>
+    <!-- Chat Form -->
+    <form class="chat-input" id="chat-form">
+      <button type="button" class="btn-clear" id="btn-reset" title="Tarixni tozalash">Tozalash</button>
+      <textarea class="input-box" id="user-input" rows="1" placeholder="Savolingizni o'zbek yoki rus tilida yozing… (Enter — yuborish)"></textarea>
+      <button class="btn-send" id="btn-submit" type="submit">Yuborish ➔</button>
+    </form>
+  </div>
+
+  <!-- TAB 2: YILLAR DINAMIKASI -->
+  <div class="tab-pane" id="tab-years" style="padding: 10px 0;">
+    <h2 style="font-size: 1.05rem; font-weight: 700;">Birja Savdolari Yillik Ko‘rsatkichlari (2022–2026)</h2>
+    <p style="color: var(--peri-muted); font-size: 0.8rem; margin-top: 2px;">SQLite bazasidagi 500 000 ta bitim bo‘yicha aniq yillik taqsimot</p>
+    
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Yil</th>
+            <th>Bitimlar</th>
+            <th>Holat / Xususiyat</th>
+            <th>Harakat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>2022</strong></td>
+            <td>~95 840 ta</td>
+            <td>Birinchi bitim 03.01.2022 (RUKUSHO‘ FERMER)</td>
+            <td><span class="action-link" onclick="askPreset('2022-yilda jami bitimlar soni va birinchi bitim tafsilotlari?')">Tahlil ➔</span></td>
+          </tr>
+          <tr>
+            <td><strong>2023</strong></td>
+            <td>~104 210 ta</td>
+            <td>6 313 ta bitim bekor qilingan (annulled)</td>
+            <td><span class="action-link" onclick="askPreset('2023-yilda qancha bitim bekor qilingan va umumiy soni?')">Tahlil ➔</span></td>
+          </tr>
+          <tr>
+            <td><strong>2024</strong></td>
+            <td><strong>106 647 ta</strong></td>
+            <td>Eng yirik yillik aylanma: 45.9 trln UZS</td>
+            <td><span class="action-link" onclick="askPreset('2024-yilda nechta bitim tuzilgan va umumiy summasi qancha?')">Tahlil ➔</span></td>
+          </tr>
+          <tr>
+            <td><strong>2025</strong></td>
+            <td>~108 130 ta</td>
+            <td>Sement va neft mahsulotlari yetakchi</td>
+            <td><span class="action-link" onclick="askPreset('2025-yilda eng ko\'p summa keltirgan mahsulot qaysi?')">Tahlil ➔</span></td>
+          </tr>
+          <tr>
+            <td><strong>2026</strong></td>
+            <td>~85 170 ta</td>
+            <td>1 370 ta eksport ($253.9M USD, 30-oktabrgacha)</td>
+            <td><span class="action-link" onclick="askPreset('2026-yilda eksport bitimlari hajmi va dollar summasi?')">Tahlil ➔</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 3: TOP REYTINGLAR -->
+  <div class="tab-pane" id="tab-ranks" style="padding: 10px 0;">
+    <h2 style="font-size: 1.05rem; font-weight: 700;">Birja Yetakchilari va Tovar Guruhlari</h2>
+    <p style="color: var(--peri-muted); font-size: 0.8rem; margin-top: 2px;">Reyestrdagi eng faol ishtirokchilar va mahsulotlar</p>
+
+    <div class="ranking-grid">
+      <div class="rank-card">
+        <div class="rank-header">
+          <h3>🌾 Asosiy Tovar Guruhlari</h3>
+          <span class="action-link" onclick="askPreset('Eng ko\'p sotilgan 5 ta mahsulot va ularning summasi?')">Barchasi ➔</span>
+        </div>
+        <div class="rank-item"><span class="name">Портландцемент (Sement)</span><span class="val">TOP Savdo</span></div>
+        <div class="rank-item"><span class="name">Шрот хлопковый (Paxta shroti)</span><span class="val">Yuqori talab</span></div>
+        <div class="rank-item"><span class="name">Полиэтилен (Polietilen)</span><span class="val">Sanoat xom-ashyosi</span></div>
+        <div class="rank-item"><span class="name">Автобензин АИ-80/92</span><span class="val">Strategik tovar</span></div>
+        <div class="rank-item"><span class="name">Пшеница (Bug'doy)</span><span class="val">Oziq-ovqat</span></div>
+      </div>
+
+      <div class="rank-card">
+        <div class="rank-header">
+          <h3>🏢 Bozor Ishtirokchilari</h3>
+          <span class="action-link" onclick="askPreset('Eng ko\'p xarid qilgan kompaniya kim (STIR bilan)?')">Barchasi ➔</span>
+        </div>
+        <div class="rank-item"><span class="name">Eng yirik xaridorlar</span><span class="val">STIR bilan</span></div>
+        <div class="rank-item"><span class="name">Eng yirik ishlab chiqaruvchilar</span><span class="val">Sotuvchilar</span></div>
+        <div class="rank-item"><span class="name">Faol birja brokerlari</span><span class="val">BK001-BK120</span></div>
+        <div class="rank-item"><span class="name">Eksport qiluvchi korxonalar</span><span class="val">USD hisobida</span></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-const chatStream = document.getElementById('chat-stream');
-const userInput = document.getElementById('user-input');
-const btnSubmit = document.getElementById('btn-submit');
-const chatForm = document.getElementById('chat-form');
-const btnReset = document.getElementById('btn-reset');
-const welcomeCard = document.getElementById('welcome-card');
-let currentSession = localStorage.getItem('uzex_session') || null;
-
 // Telegram WebApp Integration
 if (window.Telegram && window.Telegram.WebApp) {
   try {
@@ -592,13 +765,58 @@ if (window.Telegram && window.Telegram.WebApp) {
   }
 }
 
-// Mobile viewport resize & keyboard handling
-window.addEventListener('resize', () => {
-  scrollToBottom();
+// Tab Switching
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabPanes = document.querySelectorAll('.tab-pane');
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabButtons.forEach(b => b.classList.remove('active'));
+    tabPanes.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const target = document.getElementById(btn.dataset.tab);
+    if (target) target.classList.add('active');
+  });
 });
-userInput.addEventListener('focus', () => {
-  setTimeout(scrollToBottom, 250);
+
+function switchToChat() {
+  tabButtons.forEach(b => b.classList.remove('active'));
+  tabPanes.forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-tab="tab-chat"]').classList.add('active');
+  document.getElementById('tab-chat').classList.add('active');
+}
+
+function askPreset(q) {
+  switchToChat();
+  handleQuestion(q);
+}
+
+// Pill filtering
+const pillButtons = document.querySelectorAll('.pill-btn');
+const chips = document.querySelectorAll('.chip');
+
+pillButtons.forEach(pill => {
+  pill.addEventListener('click', () => {
+    pillButtons.forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    const cat = pill.dataset.cat;
+    chips.forEach(chip => {
+      if (cat === 'all' || chip.dataset.cat === cat) {
+        chip.style.display = 'flex';
+      } else {
+        chip.style.display = 'none';
+      }
+    });
+  });
 });
+
+// Chat Logic
+const chatStream = document.getElementById('chat-stream');
+const userInput = document.getElementById('user-input');
+const btnSubmit = document.getElementById('btn-submit');
+const chatForm = document.getElementById('chat-form');
+const btnReset = document.getElementById('btn-reset');
+let currentSession = localStorage.getItem('uzex_session') || null;
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -606,7 +824,6 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
 
 const formatMarkdown = text => {
   let safe = escapeHtml(text);
-  // Bold **text**
   safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   return safe;
 };
@@ -615,8 +832,10 @@ function scrollToBottom() {
   chatStream.scrollTop = chatStream.scrollHeight;
 }
 
+window.addEventListener('resize', scrollToBottom);
+userInput.addEventListener('focus', () => setTimeout(scrollToBottom, 200));
+
 function appendUserMessage(text) {
-  if (welcomeCard) welcomeCard.style.display = 'none';
   const div = document.createElement('div');
   div.className = 'msg msg-user';
   div.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
@@ -624,14 +843,14 @@ function appendUserMessage(text) {
   scrollToBottom();
 }
 
-function appendLoadingIndicator() {
+function appendLoadingIndicator(q) {
   const div = document.createElement('div');
   div.className = 'msg msg-agent loading-msg';
   div.innerHTML = `
     <div class="bubble">
       <div class="loading-indicator">
         <div class="spinner"></div>
-        <span>Ma'lumotlar bazasida qidirilmoqda va hisoblanmoqda…</span>
+        <span>SQLite bazasidan hisoblanmoqda…</span>
       </div>
     </div>
   `;
@@ -648,7 +867,7 @@ async function handleQuestion(question) {
   userInput.style.height = 'auto';
   btnSubmit.disabled = true;
 
-  const loadingDiv = appendLoadingIndicator();
+  const loadingDiv = appendLoadingIndicator(question);
 
   try {
     const res = await fetch('/api/ask', {
@@ -667,20 +886,19 @@ async function handleQuestion(question) {
     currentSession = data.session;
     localStorage.setItem('uzex_session', currentSession);
 
-    // Build basis SQL details
     let basisHtml = '';
     if (data.basis && data.basis.length > 0) {
       const basisItems = data.basis.map(b => {
         let inputStr = b.input.query || JSON.stringify(b.input, null, 2);
         let resStr = b.error ? `⚠️ Xatolik: ${b.error}` : 
-                     (b.rows !== null ? `✓ Qatorlar: ${b.rows}` : (b.matches !== null ? `✓ Topildi: ${b.matches}` : '✓ Bajarildi'));
+                     (b.rows !== null ? `✓ Qatorlar soni: ${b.rows}` : (b.matches !== null ? `✓ Topildi: ${b.matches}` : '✓ Bajarildi'));
         return `[Asbob: ${b.tool}]\n${inputStr}\n➜ ${resStr}`;
       }).join('\n\n');
 
       basisHtml = `
         <details class="basis">
           <summary>
-            <span>🔍 Asos: Bajarilgan SQL va Filtrlar</span>
+            <span>🔍 Asos: Bajarilgan SQL so'rovi</span>
             <span>Ochish ▼</span>
           </summary>
           <pre>${escapeHtml(basisItems)}</pre>
@@ -694,7 +912,7 @@ async function handleQuestion(question) {
       <div class="bubble">
         <div class="answer-text">${formatMarkdown(data.answer)}</div>
         <div class="msg-meta">
-          <span class="meta-tag">⏱️ ${data.seconds} soniya</span>
+          <span class="meta-tag">⏱️ ${data.seconds}s</span>
           <span class="meta-tag">⚡ ${data.steps || 1} qadam</span>
           <span class="meta-tag">🛡️ SQL Grounded</span>
         </div>
@@ -737,18 +955,18 @@ userInput.addEventListener('keydown', e => {
 
 userInput.addEventListener('input', () => {
   userInput.style.height = 'auto';
-  userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+  userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
 });
 
-// Clickable prompt chips
-document.querySelectorAll('.chip').forEach(chip => {
+// Chips click
+chips.forEach(chip => {
   chip.addEventListener('click', () => {
     const text = chip.querySelector('span').textContent;
     handleQuestion(text);
   });
 });
 
-// Reset history button
+// Reset history
 btnReset.addEventListener('click', async () => {
   if (currentSession) {
     try {

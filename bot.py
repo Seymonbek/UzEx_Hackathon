@@ -136,40 +136,42 @@ def format_tg_html(text: str) -> str:
 
 async def execute_and_reply(update_or_query, text: str, chat_id: int, ctx: ContextTypes.DEFAULT_TYPE, is_callback: bool = False):
     """Agentga so'rov yuborish va natijani chiroyli kartochka formatida chiqarish."""
-    status_msg = None
     if is_callback:
-        status_msg = await update_or_query.message.reply_text(
-            f"⏳ <b>So'rov bajarilmoqda:</b>\n<i>«{html.escape(text)}»</i>\n\n<i>SQLite bazasidan hisoblanmoqda...</i>",
-            parse_mode=ParseMode.HTML
-        )
+        try:
+            await update_or_query.message.edit_text(
+                f"⏳ <b>Hisoblanmoqda:</b>\n<i>«{html.escape(text)}»</i>\n\n<i>SQLite bazasidan tahlil qilinmoqda...</i>",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception:
+            pass
     else:
         await ctx.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
-    hist = ctx.chat_data.setdefault("h", [])
+    # Preset savollarda eski tarix yuklanmaydi — bu javobni 3 barobar tezlashtiradi (~1.5-2s)
+    call_hist = [] if is_callback else ctx.chat_data.setdefault("h", [])[-2:]
 
     try:
-        res = await asyncio.to_thread(agent.ask, text[:2000], hist)
+        res = await asyncio.to_thread(agent.ask, text[:2000], call_hist)
     except Exception as e:
         logger.exception("Agent execution failed")
         err_msg = str(e)
-        if status_msg:
-            try: await status_msg.delete()
-            except Exception: pass
         if "API_KEY" in err_msg or "не задан" in err_msg:
-            return await ctx.bot.send_message(chat_id, "⚠️ <b>Xatolik:</b> API kalit o'rnatilmagan.", parse_mode=ParseMode.HTML)
-        return await ctx.bot.send_message(chat_id, f"⚠️ <b>Xatolik yuz berdi:</b> {html.escape(err_msg)}", parse_mode=ParseMode.HTML)
-
-    if status_msg:
-        try: await status_msg.delete()
-        except Exception: pass
+            err_text = "⚠️ <b>Xatolik:</b> API kalit o'rnatilmagan."
+        else:
+            err_text = f"⚠️ <b>Xatolik yuz berdi:</b> {html.escape(err_msg)}"
+        if is_callback:
+            try: return await update_or_query.message.edit_text(err_text, parse_mode=ParseMode.HTML)
+            except Exception: pass
+        return await ctx.bot.send_message(chat_id, err_text, parse_mode=ParseMode.HTML)
 
     answer = res.get("answer", "")
     trace = res.get("trace", [])
     seconds = res.get("seconds", 0)
     steps = res.get("steps", 1)
 
+    hist = ctx.chat_data.setdefault("h", [])
     hist.append((text, answer))
-    del hist[:-6]
+    del hist[:-4]
     _last_traces[chat_id] = res
 
     # Inline buttons under the result
@@ -190,6 +192,12 @@ async def execute_and_reply(update_or_query, text: str, chat_id: int, ctx: Conte
         f"───────────────────────\n"
         f"⏱️ <i>Vaqt: {seconds}s | ⚡ Qadamlar: {steps} | 🛡️ SQL Grounded</i>"
     )
+
+    if is_callback and len(result_card) <= 4000:
+        try:
+            return await update_or_query.message.edit_text(result_card, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+        except Exception:
+            pass
 
     for i in range(0, len(result_card), 3900):
         chunk = result_card[i:i + 3900]
