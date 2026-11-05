@@ -4,6 +4,7 @@
 При исчерпании лимита (429, ResourceExhausted, Quota) автоматически переключается на следующий ключ из пула.
 """
 import os, json, time, sys, re, threading
+import boot
 from catalog import PRODUCTS, REGIONS
 import datastore as ds
 
@@ -143,11 +144,157 @@ def is_rate_limit_or_quota(e: Exception) -> bool:
     ])
 
 
-def _system_text():
+# ==================== TILNI ANIQLASH VA STANDARTLASHTIRISH ====================
+UZ_WORDS = {
+    'kim', 'nima', 'qaysi', 'qachon', 'qayerda', 'necha', 'nechta', 'qancha', 'bormi', 'edi', 'ekan',
+    'yilda', 'yilgi', 'yili', 'yildagi', 'oyida', 'kuni', 'tuzilgan', 'amalga', 'oshirilgan', 'bitim',
+    'bitimlar', 'bitimni', 'bitimning', 'savdo', 'mahsulot', 'mahsulotlar', 'sotuvchi', 'xaridor',
+    'narx', 'narxi', 'narxlar', 'summa', 'summasi', 'eng', 'boshlab', 'bergan', 'berganlar', 'jami',
+    'umumiy', 'qilingan', 'haqida', 'malumot', "ma'lumot", 'bering', 'korsating', "ko'rsating",
+    'top', 'toping', 'chiqar', 'chiqaring', 'boyicha', "bo'yicha", 'viloyat', 'viloyati', 'shahar',
+    'shahri', 'hudud', 'eksport', 'ichki', 'dollar', 'som', "so'm", 'bekor', 'korxona', 'kompaniya',
+    'broker', 'kontrakt', 'lot', 'hajm', 'hajmi', 'yirik', 'katta', 'kichik', 'birinchi', 'oxirgi',
+    'orta', "o'rtacha", 'kop', "ko'p", 'kam', 'odam', 'tashkilot', 'kimlar', 'qanday', 'qanaqa',
+    'bolgan', "bo'lgan", 'qaysilar', 'korgan', 'olgan', 'sotgan'
+}
+
+UZ_CYR_WORDS = {
+    'ким', 'нима', 'қайси', 'қачон', 'қаерда', 'неча', 'нечта', 'қанча', 'борми', 'эди', 'экан',
+    'йилда', 'йилги', 'йили', 'ойида', 'куни', 'тузилган', 'амалга', 'оширилган', 'битим',
+    'битимлар', 'битимни', 'савдо', 'маҳсулот', 'сотувчи', 'харидор', 'нарх', 'нархи', 'сумма',
+    'суммаси', 'энг', 'бошлаб', 'берган', 'жами', 'умумий', 'қилинган', 'ҳақида', 'маълумот',
+    'беринг', 'кўрсатинг', 'топ', 'топинг', 'чиқар', 'чиқаринг', 'бўйича', 'вилоят', 'вилояти',
+    'шаҳар', 'ҳудуд', 'экспорт', 'ички', 'сўм', 'бекор', 'корхона', 'компания', 'брокер',
+    'ҳажм', 'ҳажми', 'йирик', 'катта', 'кичик', 'биринчи', 'охирги', 'ўрта', 'ўртача', 'кўп',
+    'кам', 'одам', 'ташкилот', 'қандай'
+}
+
+RU_WORDS = {
+    'кто', 'что', 'какой', 'какая', 'какое', 'какие', 'когда', 'где', 'сколько', 'почему',
+    'году', 'года', 'год', 'сделка', 'сделки', 'сделок', 'сделку', 'продавец', 'покупатель',
+    'товар', 'товары', 'сумма', 'суммы', 'объем', 'объемы', 'цена', 'цены', 'самый', 'самая',
+    'самое', 'самые', 'первый', 'первая', 'первое', 'первые', 'последний', 'последняя',
+    'крупный', 'крупная', 'наибольший', 'наименьший', 'был', 'была', 'было', 'были',
+    'пожалуйста', 'покажи', 'найди', 'информация', 'данные', 'всего', 'средний', 'средняя',
+    'экспорт', 'импорт', 'брокер', 'компания', 'предприятие', 'контракт', 'за', 'в', 'на', 'с'
+}
+
+
+def detect_lang(text: str) -> str:
+    """Tilni aniqlash: uz_lat (o'zbek lotin), uz_cyr (o'zbek kirill), ru (rus)."""
+    t = (text or "").lower()
+    if any(c in t for c in 'ўғқҳ'):
+        return 'uz_cyr'
+    words = set(re.findall(r"[a-zA-Zа-яА-ЯёЁʻʼ'`]+", t))
+    uz_lat_matches = len(words & UZ_WORDS)
+    uz_cyr_matches = len(words & UZ_CYR_WORDS)
+    ru_matches = len(words & RU_WORDS)
+    has_lat = bool(re.search(r'[a-zA-Z]', t))
+    has_cyr = bool(re.search(r'[а-яА-ЯёЁ]', t))
+    if uz_lat_matches > 0 or (has_lat and not has_cyr):
+        return 'uz_lat'
+    if uz_cyr_matches > ru_matches:
+        return 'uz_cyr'
+    if ru_matches > 0 or has_cyr:
+        return 'ru'
+    return 'uz_lat'
+
+
+def _clean_response(answer: str, lang: str) -> str:
+    """Javobdagi qoldiq ruscha iboralar yoki noto'g'ri shakllarni tozalash."""
+    if not answer:
+        return answer
+    if lang == "uz_lat":
+        replacements = [
+            (r'(?i)\bоснование\s*:\s*', '**Asos**: '),
+            (r'(?i)\bоснование\b', 'Asos'),
+            (r'(?i)\bоснова\s*:\s*', '**Asos**: '),
+            (r'(?i)\bбазис\s*:\s*', '**Asos**: '),
+            (r'(?i)\bпервый зарегистрированный в реестре\b', 'reyestrda birinchi ro‘yxatga olingan'),
+            (r'(?i)\bсамая ранняя сделка\b', 'eng birinchi bitim'),
+            (r'(?i)\bсамая поздняя сделка\b', 'eng so‘nggi bitim'),
+            (r'(?i)\bв реестре\b', 'reyestrda'),
+            (r'(?i)\bвыбран продавец\b', 'sotuvchi tanlandi'),
+            (r'(?i)\bвыбран покупатель\b', 'xaridor tanlandi'),
+            (r'(?i)\bвыбран\b', 'tanlandi'),
+            (r'(?i)\bпродавец\b', 'sotuvchi'),
+            (r'(?i)\bпокупатель\b', 'xaridor'),
+            (r'(?i)\bсделка\b', 'bitim'),
+            (r'(?i)\bсделки\b', 'bitimlar'),
+            (r'(?i)\bсделок\b', 'bitimlar'),
+            (r'(?i)\bсделку\b', 'bitimni'),
+            (r'(\d{4})\s*г\.', r'\1-yil'),
+            (r'(\d{4})\s*года\b', r'\1-yilda'),
+            (r'(\d{4})\s*году\b', r'\1-yilda'),
+            (r'(\d{4})‑yилдаги', r'\1-yildagi'),
+            (r'(\d{4})‑йилдаги', r'\1-yildagi'),
+            (r'yил', 'yil'),
+            (r'йил', 'yil'),
+        ]
+        for pattern, rep in replacements:
+            answer = re.sub(pattern, rep, answer)
+    elif lang == "uz_cyr":
+        replacements = [
+            (r'(?i)\bоснование\s*:\s*', '**Асос**: '),
+            (r'(?i)\bоснование\b', 'Асос'),
+            (r'(?i)\bоснова\s*:\s*', '**Асос**: '),
+            (r'(?i)\bбазис\s*:\s*', '**Асос**: '),
+            (r'(?i)\bсамая ранняя сделка\b', 'энг биринчи битим'),
+            (r'(?i)\bв реестре\b', 'реестрда'),
+            (r'(?i)\bвыбран продавец\b', 'сотувчи танланди'),
+            (r'(?i)\bвыбран\b', 'танланди'),
+            (r'(?i)\bпродавец\b', 'сотувчи'),
+            (r'(?i)\bпокупатель\b', 'харидор'),
+            (r'(?i)\bсделка\b', 'битим'),
+            (r'(?i)\bсделки\b', 'битимлар'),
+            (r'(?i)\bсделок\b', 'битимлар'),
+            (r'(\d{4})\s*г\.', r'\1-йил'),
+            (r'(\d{4})\s*года\b', r'\1-йилда'),
+        ]
+        for pattern, rep in replacements:
+            answer = re.sub(pattern, rep, answer)
+    return answer
+
+
+def _system_text(lang: str = "uz_lat"):
     ov = ds.db_overview()
     f = ov["first_date"][8:] + "." + ov["first_date"][5:7] + "." + ov["first_date"][:4]
     l = ov["last_date"][8:] + "." + ov["last_date"][5:7] + "." + ov["last_date"][:4]
-    return SYSTEM.replace("{first}", f).replace("{last}", l)
+    base = SYSTEM.replace("{first}", f).replace("{last}", l)
+    
+    if lang == "uz_lat":
+        base += (
+            "\n\nQAT'IY TIL TALABI (O'ZBEK TILI, LOTIN ALIFBOSI):\n"
+            "Foydalanuvchi O'ZBEK tilida savol berdi. Javobingni 100% TO'LIQ O'ZBEK TILIDA (lotin alifbosida) berishing SHART!\n"
+            "Bitta ham ruscha so'z ('Основание', 'сделка', 'продавец', 'покупатель', 'выбран', 'самая ранняя', 'в реестре', 'г.', 'года') ISHLATILMASIN!\n"
+            "Format:\n"
+            "1. To'g'ridan-to'g'ri aniq faktlar bilan o'zbekcha javob (sana, tashkilot nomi, STIR/INN, summa, mahsulot).\n"
+            "2. Oxirida bir qisqa satr: **Asos**: ... (ruscha 'Основание:' EMAS, faqat 'Asos:' deb yoz!).\n"
+            "Lug'at:\n"
+            "- 'Основание:' -> 'Asos:'\n"
+            "- 'сделка' -> 'bitim'\n"
+            "- 'сделки' -> 'bitimlar'\n"
+            "- 'продавец' -> 'sotuvchi'\n"
+            "- 'покупатель' -> 'xaridor'\n"
+            "- 'товар' -> 'mahsulot'\n"
+            "- 'в реестре' -> 'reyestrda'\n"
+            "- 'выбран' -> 'tanlandi'\n"
+            "- '2022г.' yoki '2022 года' -> '2022-yilda'\n"
+        )
+    elif lang == "uz_cyr":
+        base += (
+            "\n\nҚАТЪИЙ ТИЛ ТАЛАБИ (ЎЗБЕК ТИЛИ, КИРИЛЛ АЛИФБОСИ):\n"
+            "Фойдаланувчи ЎЗБЕК тилида савол берди. Жавобингни 100% ТЎЛИҚ ЎЗБЕК ТИЛИДА (кирилл алифбосида) бер!\n"
+            "Бирорта ҳам русча сўз ('Основание', 'сделка', 'продавец', 'покупатель' ва ҳ.к.) ишлатма!\n"
+            "Формат: тўғридан-тўғри жавоб, охирида: **Асос**: ... (русча 'Основание:' эмас!).\n"
+        )
+    elif lang == "ru":
+        base += (
+            "\n\nЯЗЫКОВОЕ ТРЕБОВАНИЕ (РУССКИЙ ЯЗЫК):\n"
+            "Вопрос задан на РУССКОМ языке. Твой ответ должен быть полностью на грамотном РУССКОМ языке.\n"
+            "Формат: прямой ответ с точными цифрами, затем «Основание: ...».\n"
+        )
+    return base
 
 
 def _run_tool(name, args):
@@ -401,10 +548,17 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
         }}
     ]
 
-    msgs = [{"role": "system", "content": _system_text()}]
+    lang = detect_lang(question)
+    msgs = [{"role": "system", "content": _system_text(lang)}]
     for q, a in (history or [])[-4:]:
         msgs += [{"role": "user", "content": q}, {"role": "assistant", "content": a}]
-    msgs.append({"role": "user", "content": question})
+    if lang == "uz_lat":
+        user_content = f"[TALAB: Savol o'zbek tilida berildi. Javobni faqat O'ZBEK tilida ber! Asosni 'Asos: ...' deb yoz, 'Основание' yoki birorta ruscha so'z ishlatma!]\n{question}"
+    elif lang == "uz_cyr":
+        user_content = f"[ТАЛАБ: Савол ўзбек тилида берилди. Жавобни фақат ЎЗБЕК тилида бер! Асосни 'Асос: ...' деб ёз, 'Основание' ишлатма!]\n{question}"
+    else:
+        user_content = question
+    msgs.append({"role": "user", "content": user_content})
 
     trace, steps, answer = [], 0, None
     max_key_attempts = max(1, pool.count())
@@ -426,7 +580,7 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
 
         msg = resp.choices[0].message
         if not msg.tool_calls:
-            answer = msg.content
+            answer = _clean_response(msg.content, lang)
             break
         msgs.append(msg)
         for tc in msg.tool_calls:
@@ -437,8 +591,14 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
             msgs.append({"role": "tool", "tool_call_id": tc.id, "content": _result_text(tool_res)})
 
     if not answer:
-        answer = ("Не удалось получить надёжный ответ за отведённое время. / "
-                  "Ishonchli javob olishga ulgurmadim.")
+        if lang == "uz_lat":
+            answer = "Ajratilgan vaqt ichida ishonchli javob olishga ulgurmadim."
+        elif lang == "uz_cyr":
+            answer = "Ажратилган вақт ичида ишончли жавоб олишга улгурмадим."
+        else:
+            answer = "Не удалось получить надёжный ответ за отведённое время."
+    else:
+        answer = _clean_response(answer, lang)
     return {"answer": answer, "trace": trace, "seconds": round(time.time() - t0, 1), "steps": steps}
 
 

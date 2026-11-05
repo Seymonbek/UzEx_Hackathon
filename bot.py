@@ -4,7 +4,8 @@ Barcha xususiyatlar: Inline Asos/SQL tugmasi, statistika, namunaviy tugmalar, ko
 Запуск:
     python bot.py
 """
-import os, re, html, asyncio, logging
+import os, re, html, asyncio, logging, sys
+sys.stdout.reconfigure(encoding="utf-8")
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
     ReplyKeyboardMarkup, KeyboardButton
