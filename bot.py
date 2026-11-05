@@ -55,6 +55,7 @@ PRESET_QUESTIONS = {
     "ask_q_topseller": "Eng ko'p mahsulot sotgan kompaniya kim (STIR bilan)?",
     "ask_q_brokers": "Eng faol 3 ta broker kodi va ularning bitimlar soni qancha?",
     "ask_q_export2026": "2026-yilda eksport bitimlari hajmi va dollar summasi qancha?",
+    "ask_q_export_growth": "eksport 2024 yildan 2025 yilgacha necha foizga oshgan?",
     "ask_q_exportprod": "Eksport bo'yicha eng ko'p sotilgan tovarlar qaysilar?",
     "ask_q_annulled": "2023-yilda qancha bitim bekor qilingan (annulirovan)?",
     "ask_q_first2022": "2022-yilda eng birinchi bitimni kim boshlab bergan va qanday mahsulot sotilgan?",
@@ -109,6 +110,7 @@ def kb_companies_menu():
 
 def kb_export_menu():
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📈 2024-2025 Eksport o'sishi (USD & UZS)", callback_data="ask_q_export_growth")],
         [InlineKeyboardButton("💵 2026-yil eksport hajmi va dollar summasi", callback_data="ask_q_export2026")],
         [InlineKeyboardButton("🌐 Eksportda eng ko'p sotilgan tovarlar", callback_data="ask_q_exportprod")],
         [InlineKeyboardButton("⬅️ Asosiy menyuga qaytish", callback_data="menu_main")]
@@ -117,9 +119,9 @@ def kb_export_menu():
 SAMPLE_KEYBOARD = ReplyKeyboardMarkup(
     [
         [KeyboardButton("🌐 Web App (Grafik interfeys)", web_app=WebAppInfo(url=WEBAPP_URL))],
-        [KeyboardButton("📋 Savollar menyusi"), KeyboardButton("📊 Baza statistikasi")],
+        [KeyboardButton("📈 Eksport 2024-2025 o'sishi"), KeyboardButton("📋 Savollar menyusi")],
         [KeyboardButton("2024-yil bitimlari"), KeyboardButton("Eng yirik xaridor")],
-        [KeyboardButton("🧹 Tarixni tozalash"), KeyboardButton("ℹ️ Yordam")]
+        [KeyboardButton("📊 Baza statistikasi"), KeyboardButton("🧹 Tarixni tozalash")]
     ],
     resize_keyboard=True
 )
@@ -128,10 +130,33 @@ _last_traces = {}
 
 
 def format_tg_html(text: str) -> str:
-    """Format markdown bold **text** to HTML <b>text</b> and escape XML chars."""
-    escaped = html.escape(text)
-    escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
-    return escaped
+    """Format markdown bold **text** to HTML <b>text</b> and tables to monospaced <pre>."""
+    lines = text.split("\n")
+    in_table = False
+    table_lines = []
+    out = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("|") and stripped.endswith("|"):
+            if "---" in stripped:
+                continue
+            in_table = True
+            cells = [c.strip() for c in stripped.split("|")[1:-1]]
+            table_lines.append(" | ".join(cells))
+        else:
+            if in_table:
+                in_table = False
+                out.append("<pre>" + html.escape("\n".join(table_lines)) + "</pre>")
+                table_lines = []
+            escaped = html.escape(line)
+            escaped = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", escaped)
+            out.append(escaped)
+
+    if in_table:
+        out.append("<pre>" + html.escape("\n".join(table_lines)) + "</pre>")
+
+    return "\n".join(out)
 
 
 async def execute_and_reply(update_or_query, text: str, chat_id: int, ctx: ContextTypes.DEFAULT_TYPE, is_callback: bool = False):
@@ -374,6 +399,8 @@ async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return await help_command(update, ctx)
     elif text == "🧹 Tarixni tozalash":
         return await clear_command(update, ctx)
+    elif text == "📈 Eksport 2024-2025 o'sishi":
+        text = "eksport 2024 yildan 2025 yilgacha necha foizga oshgan?"
     elif text == "2024-yil bitimlari":
         text = "2024-yilda nechta bitim tuzilgan va umumiy summasi qancha?"
     elif text == "Eng yirik xaridor":

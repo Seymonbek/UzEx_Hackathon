@@ -373,6 +373,43 @@ details.basis pre {
   line-height: 1.4;
 }
 
+/* Chat Markdown Tables */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 211, 255, 0.18);
+  -webkit-overflow-scrolling: touch;
+}
+.chat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.80rem;
+  font-family: var(--font-mono);
+  background: rgba(12, 16, 51, 0.7);
+}
+.chat-table th {
+  background: rgba(56, 85, 214, 0.35);
+  color: var(--neon);
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(201, 211, 255, 0.2);
+  white-space: nowrap;
+}
+.chat-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(201, 211, 255, 0.08);
+  color: #E2E8F0;
+  white-space: nowrap;
+}
+.chat-table tr:last-child td {
+  border-bottom: none;
+}
+.chat-table tr:hover td {
+  background: rgba(201, 211, 255, 0.05);
+}
+
 /* Loading state */
 .loading-indicator {
   display: flex;
@@ -629,6 +666,10 @@ textarea.input-box:focus {
 
       <!-- Quick Chips Grid -->
       <div class="chips-container" id="chips-container">
+        <button class="chip" data-cat="export" type="button" style="border-color: rgba(61, 240, 138, 0.45); background: rgba(61, 240, 138, 0.08);">
+          <span>📈 <strong>Eksport 2024 yildan 2025 yilgacha necha foizga oshgan?</strong> (USD & UZS)</span>
+          <span class="ar">→</span>
+        </button>
         <button class="chip" data-cat="years" type="button">
           <span>2024-yilda nechta bitim tuzilgan va umumiy summasi qancha?</span>
           <span class="ar">→</span>
@@ -672,6 +713,40 @@ textarea.input-box:focus {
   <div class="tab-pane" id="tab-years" style="padding: 10px 0;">
     <h2 style="font-size: 1.05rem; font-weight: 700;">Birja Savdolari Yillik Ko‘rsatkichlari (2022–2026)</h2>
     <p style="color: var(--peri-muted); font-size: 0.8rem; margin-top: 2px;">SQLite bazasidagi 500 000 ta bitim bo‘yicha aniq yillik taqsimot</p>
+
+    <!-- Executive Dual Currency Comparison Box -->
+    <div style="background: linear-gradient(135deg, rgba(27, 36, 100, 0.75), rgba(56, 85, 214, 0.25)); border: 1px solid rgba(61, 240, 138, 0.45); border-radius: 12px; padding: 14px; margin: 12px 0;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; margin: 0;">
+          <span>🌐</span> 2024 vs 2025 Eksport Dinamikasi (UZS & USD)
+        </h3>
+        <span class="action-link" style="font-weight: 700; color: var(--neon); cursor: pointer;" onclick="askPreset('eksport 2024 yildan 2025 yilgacha necha foizga oshgan?')">AI Tahlil ➔</span>
+      </div>
+      <p style="color: var(--peri-muted); font-size: 0.78rem; margin-bottom: 12px;">Hakamlar va tahlilchilar uchun: har ikki valyutada to'liq rasmiy hisob-kitob</p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+        <div style="background: rgba(12, 16, 51, 0.6); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(201, 211, 255, 0.1);">
+          <div style="font-size: 0.72rem; color: var(--peri-muted); text-transform: uppercase;">UZS Bo‘yicha Aylanma</div>
+          <div style="font-size: 1.05rem; font-weight: 800; color: var(--neon); margin: 3px 0;">+4,55% o‘sish</div>
+          <div style="font-size: 0.76rem; color: #DDE5FF;">2024: 2 621,4 mlrd UZS<br>2025: 2 740,8 mlrd UZS</div>
+          <div style="font-size: 0.72rem; color: var(--peri); margin-top: 3px;">Farq: +119,37 mlrd UZS</div>
+        </div>
+
+        <div style="background: rgba(12, 16, 51, 0.6); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(201, 211, 255, 0.1);">
+          <div style="font-size: 0.72rem; color: var(--peri-muted); text-transform: uppercase;">USD Bo‘yicha Shartnomalar</div>
+          <div style="font-size: 1.05rem; font-weight: 800; color: #60A5FA; margin: 3px 0;">+0,56% o‘sish</div>
+          <div style="font-size: 0.76rem; color: #DDE5FF;">2024: $219,31 mln USD<br>2025: $220,52 mln USD</div>
+          <div style="font-size: 0.72rem; color: var(--peri); margin-top: 3px;">Farq: +$1,22 mln USD</div>
+        </div>
+
+        <div style="background: rgba(12, 16, 51, 0.6); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(201, 211, 255, 0.1);">
+          <div style="font-size: 0.72rem; color: var(--peri-muted); text-transform: uppercase;">Bitimlar Soni & Hajm</div>
+          <div style="font-size: 1.05rem; font-weight: 800; color: #F59E0B; margin: 3px 0;">+3,02% bitimlar</div>
+          <div style="font-size: 0.76rem; color: #DDE5FF;">2024: 1 327 ta (31 598 tn)<br>2025: 1 367 ta (32 117 tn)</div>
+          <div style="font-size: 0.72rem; color: var(--peri); margin-top: 3px;">Farq: +40 ta bitim (+519 tn)</div>
+        </div>
+      </div>
+    </div>
     
     <div class="table-card">
       <table class="data-table">
@@ -823,9 +898,47 @@ const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
 }[c]));
 
 const formatMarkdown = text => {
-  let safe = escapeHtml(text);
-  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  return safe;
+  if (!text) return '';
+  const lines = text.split('\n');
+  let inTable = false;
+  let tableHtml = '';
+  let out = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const line = rawLine.trim();
+    if (line.startsWith('|') && line.endsWith('|')) {
+      if (!inTable) {
+        inTable = true;
+        tableHtml = '<div class="table-responsive"><table class="chat-table">';
+      }
+      if (line.includes('---')) {
+        continue;
+      }
+      const cells = line.split('|').slice(1, -1).map(c => c.trim());
+      const isHeader = !tableHtml.includes('<tbody>') && !tableHtml.includes('<tr>');
+      if (isHeader) {
+        tableHtml += '<thead><tr>' + cells.map(c => `<th>${escapeHtml(c).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</th>`).join('') + '</tr></thead><tbody>';
+      } else {
+        tableHtml += '<tr>' + cells.map(c => `<td>${escapeHtml(c).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</td>`).join('') + '</tr>';
+      }
+    } else {
+      if (inTable) {
+        inTable = false;
+        tableHtml += '</tbody></table></div>';
+        out.push(tableHtml);
+        tableHtml = '';
+      }
+      let safe = escapeHtml(rawLine);
+      safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      out.push(safe);
+    }
+  }
+  if (inTable) {
+    tableHtml += '</tbody></table></div>';
+    out.push(tableHtml);
+  }
+  return out.join('<br>');
 };
 
 function scrollToBottom() {

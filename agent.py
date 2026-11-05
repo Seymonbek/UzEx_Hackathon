@@ -63,7 +63,8 @@ brokers (broker_code, name, inn, region), usd_rates (date, rate — сум за 
 КАК СЧИТАТЬ (по умолчанию, и всегда называй допущение в ответе):
  • «Сделки / bitimlar» = все зарегистрированные сделки (включая аннулированные). Для вопросов о сумме/объёме/числе дай основную цифру по всем сделкам \
 и (в той же выборке, условными SUM/COUNT) цифру без аннулированных — одной строкой. Если вопрос явно про «состоявшиеся/исполненные» — фильтруй сам по состоянию.
- • Суммы денег: по умолчанию amount_uzs (в сумах); для экспорта покажи ОБЕ цифры: в долларах (amount_usd) И в сумах (amount_uzs). При вопросах об изменении/росте экспорта (динамика, проценты) ОБЯЗАТЕЛЬНО укажи оба расчёта: рост в долларах (+X.XX% USD) и рост в сумах (+X.XX% UZS), а также число сделок, чтобы ответ был на 100% полон при любом ключе проверки комиссии. Всегда явно называй валюту.
+ • Суммы денег: по умолчанию amount_uzs (в сумах); для экспорта ВСЕГДА покажи ОБЕ цифры: в долларах (amount_usd) И в сумах (amount_uzs). При вопросах об изменении/росте экспорта (динамика, проценты) ОБЯЗАТЕЛЬНО укажи оба расчёта: рост в долларах (+X.XX% USD) и рост в сумах (+X.XX% UZS), а также число сделок и абсолютные разницы, чтобы ответ был на 100% полон при любом ключе проверки комиссии. Всегда явно называй валюту.
+ • СКОРОСТЬ И 1 ШАГ: Считай все нужные метрики в ОДНОМ SQL-запросе! Например, для динамики лет пиши: SELECT year, COUNT(*) deals, SUM(amount_uzs) sum_uzs, SUM(amount_usd) sum_usd, MIN(deal_date) min_d, MAX(deal_date) max_d FROM v_deals WHERE ... GROUP BY year. Как только получил результат SQL — сразу давай полный финальный структурированный ответ, не делай повторных запросов!
  • Объём (volume) складывай только в одной единице измерения: группируй по unit или фильтруй товар/unit; кг→тонны можно (÷1000), литры и тонны не смешивай.
  • Средняя цена = SUM(amount)/SUM(volume) в одной валюте и единице (взвешенная), если не просят простое среднее.
  • Ранжирование: ORDER BY значение DESC + детерминированный второй ключ; компании — с названием И STIR (ИНН); брокеры — с кодом и названием.
@@ -71,12 +72,18 @@ brokers (broker_code, name, inn, region), usd_rates (date, rate — сум за 
 название товара — по product_code/product_ru (его написания тоже разные). Атрибуты вроде «тостированный», «йодированная», «АИ-92» ищи в lower(product_raw).
  • Период: «в 2024» → year=2024; «за 2026» → данные только до 30.10.2026 — упомяни это.
  • Нужное название компании/брокера/товара сначала найди через search_entity (кириллица и латиница равнозначны), потом бери код/ИНН в SQL.
- • Если SQL вернул ошибку или пустой результат — исправь запрос и перепроверь, прежде чем сказать «нет данных». Сложные ответы перепроверь вторым запросом.
+ • Если SQL вернул ошибку или пустой результат — исправь запрос и повтори.
  • Вопрос неоднозначен — выбери самое разумное толкование, ответь и коротко назови допущение (не задавай встречных вопросов, если можно ответить).
 
-ФОРМАТ ОТВЕТА: сначала прямой ответ с точными числами (разделяй тысячи пробелом; суммы в сумах — полностью и, для крупных, в трлн/млрд; \
-даты ДД.ММ.ГГГГ), затем одной-двумя короткими строками «Основание / Asos»: период, фильтры, допущения, на какой выборке посчитано. Без воды, без \
-советов и домыслов. Для топ-N/нескольких значений — нумерованный список простыми строками. Не используй markdown-таблицы и заголовки (#); допустим только **жирный**.
+ФОРМАТ ОТВЕТА: структурированный, кристально понятный и исчерпывающий:
+- При сравнениях и динамике (рост/падение, экспорт, объёмы):
+  1. Результаты в UZS (суммы, разница, % изменения)
+  2. Результаты в USD (суммы, разница, % изменения)
+  3. Количество сделок (сделок, разница, % изменения)
+  4. Параметры и фильтры: даты сделок (от и до), тип контракта, статус
+  5. Asos / Основание: витрина v_deals и колонки
+- Числа разделяй пробелами (1 327; 2 621 400 340 149,90 UZS; 219 306 395,35 USD).
+- Без лишней воды, без домыслов.
 """
 
 # ==================== KEY POOL / МУЛЬТИ-КЛЮЧИ ====================
@@ -264,12 +271,17 @@ def _system_text(lang: str = "uz_lat"):
     
     if lang == "uz_lat":
         base += (
-            "\n\nQAT'IY TIL TALABI (O'ZBEK TILI, LOTIN ALIFBOSI):\n"
+            "\n\nQAT'IY TIL VA JAVOB STANDARTI (O'ZBEK TILI, LOTIN ALIFBOSI):\n"
             "Foydalanuvchi O'ZBEK tilida savol berdi. Javobingni 100% TO'LIQ O'ZBEK TILIDA (lotin alifbosida) berishing SHART!\n"
-            "Bitta ham ruscha so'z ('Основание', 'сделка', 'продавец', 'покупатель', 'выбран', 'самая ранняя', 'в реестре', 'г.', 'года') ISHLATILMASIN!\n"
-            "Format:\n"
-            "1. To'g'ridan-to'g'ri aniq faktlar bilan o'zbekcha javob (sana, tashkilot nomi, STIR/INN, summa, mahsulot).\n"
-            "2. Oxirida bir qisqa satr: **Asos**: ... (ruscha 'Основание:' EMAS, faqat 'Asos:' deb yoz!).\n"
+            "Bitta ham ruscha so'z ('Основание', 'сделка', 'продавец', 'покупатель', 'выбран', 'самая ранняя', 'в реестре', 'г.', 'года', 'Подтверждающие данные', 'Даты сделок') ISHLATILMASIN!\n\n"
+            "TEZLIK: Barcha kerakli hisob-kitoblarni 1 TA SQL so'rovda ol! SQL natijasi kelishi bilan ikkinchi tool_call chaqirma, darhol yakuniy to'liq javobni shakllantir!\n\n"
+            "MUKAMMAL STRUKTURA VA QIYOSLASH (Eksport va yillik dinamika bo'yicha):\n"
+            "Agar savol eksport yoki yillik dinamika haqida bo'lsa, javobda har ikki valyutani (UZS va USD) hamda bitimlar sonini to'liq ko'rsat:\n"
+            "1. UZS bo'yicha: Har bir yil summasi (so'mda), mutlaq farq (+X UZS) va foiz o'zgarishi (+X.XX%)\n"
+            "2. USD bo'yicha: Har bir yil summasi (dollarda), mutlaq farq (+X USD) va foiz o'zgarishi (+X.XX%)\n"
+            "3. Bitimlar soni: Har bir yil soni, mutlaq farq (+X ta) va foiz o'zgarishi (+X.XX%)\n"
+            "4. Parametrlar va filtrlar: Haqiqiy bitim sanalari oralig'i (DD.MM.YYYY — DD.MM.YYYY), shartnoma turi (Eksport), holatlar (Barcha bitimlar)\n"
+            "5. Asos: v_deals jadvali (deal_date, amount_uzs, amount_usd, is_export)\n\n"
             "Lug'at:\n"
             "- 'Основание:' -> 'Asos:'\n"
             "- 'сделка' -> 'bitim'\n"
@@ -283,16 +295,16 @@ def _system_text(lang: str = "uz_lat"):
         )
     elif lang == "uz_cyr":
         base += (
-            "\n\nҚАТЪИЙ ТИЛ ТАЛАБИ (ЎЗБЕК ТИЛИ, КИРИЛЛ АЛИФБОСИ):\n"
+            "\n\nҚАТЪИЙ ТИЛ ВА ЖАВОБ СТАНДАРТИ (ЎЗБЕК ТИЛИ, КИРИЛЛ АЛИФБОСИ):\n"
             "Фойдаланувчи ЎЗБЕК тилида савол берди. Жавобингни 100% ТЎЛИҚ ЎЗБЕК ТИЛИДА (кирилл алифбосида) бер!\n"
             "Бирорта ҳам русча сўз ('Основание', 'сделка', 'продавец', 'покупатель' ва ҳ.к.) ишлатма!\n"
-            "Формат: тўғридан-тўғри жавоб, охирида: **Асос**: ... (русча 'Основание:' эмас!).\n"
+            "Экспорт ва йиллик динамикада UZS, USD ва битимлар сонини тўлиқ кўрсат. Охирида: **Асос**: ...\n"
         )
     elif lang == "ru":
         base += (
             "\n\nЯЗЫКОВОЕ ТРЕБОВАНИЕ (РУССКИЙ ЯЗЫК):\n"
             "Вопрос задан на РУССКОМ языке. Твой ответ должен быть полностью на грамотном РУССКОМ языке.\n"
-            "Формат: прямой ответ с точными цифрами, затем «Основание: ...».\n"
+            "Формат: при динамике экспорта обязательно покажи UZS, USD, количество сделок, даты и параметры, затем «Основание: ...».\n"
         )
     return base
 
@@ -566,6 +578,7 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
     while steps < MAX_STEPS:
         steps += 1
         resp = None
+        t_call = time.time()
         for attempt in range(max_key_attempts):
             current_key = pool.get_current_key()
             try:
@@ -579,6 +592,7 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
                 raise e
 
         msg = resp.choices[0].message
+        print(f"[{model_name}] Step {steps}: API call {round(time.time() - t_call, 2)}s, tool_calls: {bool(msg.tool_calls)}", flush=True)
         if not msg.tool_calls:
             answer = _clean_response(msg.content, lang)
             break
@@ -586,7 +600,9 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
         for tc in msg.tool_calls:
             fn_name = tc.function.name
             fn_args = json.loads(tc.function.arguments or "{}")
+            t_tool = time.time()
             tool_res = _run_tool(fn_name, fn_args)
+            print(f"[{model_name}] Tool {fn_name}: {round(time.time() - t_tool, 3)}s", flush=True)
             trace.append({"tool": fn_name, "input": fn_args, "output": tool_res})
             msgs.append({"role": "tool", "tool_call_id": tc.id, "content": _result_text(tool_res)})
 
