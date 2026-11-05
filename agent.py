@@ -131,6 +131,8 @@ class KeyPool:
 gemini_pool = KeyPool(["GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEYS", "GOOGLE_API_KEY"])
 anthropic_pool = KeyPool(["ANTHROPIC_API_KEYS", "ANTHROPIC_API_KEY"])
 openai_pool = KeyPool(["OPENAI_API_KEYS", "OPENAI_API_KEY"])
+groq_pool = KeyPool(["GROQ_API_KEYS", "GROQ_API_KEY"])
+openrouter_pool = KeyPool(["OPENROUTER_API_KEYS", "OPENROUTER_API_KEY"])
 
 
 def is_rate_limit_or_quota(e: Exception) -> bool:
@@ -165,17 +167,21 @@ def _result_text(res):
 
 
 def get_active_provider():
-    """Определяет провайдер: gemini | anthropic | openai."""
+    """Определяет провайдер: groq | openrouter | gemini | anthropic | openai."""
     explicit = os.environ.get("LLM_PROVIDER", "").lower()
-    if explicit in ("gemini", "anthropic", "openai"):
+    if explicit in ("groq", "openrouter", "gemini", "anthropic", "openai"):
         return explicit
+    if groq_pool.count() > 0:
+        return "groq"
+    if openrouter_pool.count() > 0:
+        return "openrouter"
     if gemini_pool.count() > 0:
         return "gemini"
     if anthropic_pool.count() > 0:
         return "anthropic"
     if openai_pool.count() > 0:
         return "openai"
-    return "gemini"  # по умолчанию
+    return "groq"  # по умолчанию
 
 
 # ---------------- GOOGLE GEMINI ----------------
@@ -357,23 +363,37 @@ def _ask_anthropic(question: str, history=None) -> dict:
     return {"answer": answer, "trace": trace, "seconds": round(time.time() - t0, 1), "steps": steps}
 
 
-# ---------------- OPENAI ----------------
-def _ask_openai(question: str, history=None) -> dict:
+# ---------------- OPENAI COMPATIBLE (GROQ / OPENROUTER / OPENAI) ----------------
+def _ask_openai_compatible(question: str, history=None, provider_name: str = "openai") -> dict:
     from openai import OpenAI
     t0 = time.time()
-    openai_pool.refresh()
-    if openai_pool.count() == 0:
-        raise ValueError("OPENAI_API_KEY не задан в .env")
+    
+    if provider_name == "groq":
+        pool = groq_pool
+        base_url = "https://api.groq.com/openai/v1"
+        default_model = "llama-3.3-70b-versatile"
+    elif provider_name == "openrouter":
+        pool = openrouter_pool
+        base_url = "https://openrouter.ai/api/v1"
+        default_model = "meta-llama/llama-3.3-70b-instruct:free"
+    else:
+        pool = openai_pool
+        base_url = None
+        default_model = "gpt-4o"
 
-    model_name = os.environ.get("UZEX_MODEL", "gpt-4o")
+    pool.refresh()
+    if pool.count() == 0:
+        raise ValueError(f"{provider_name.upper()}_API_KEY не задан в .env")
 
-    tools_openai = [
+    model_name = os.environ.get("UZEX_MODEL") or default_model
+
+    tools_spec = [
         {"type": "function", "function": {
-            "name": "run_sql", "description": "Выполнить SELECT к SQLite v_deals",
+            "name": "run_sql", "description": "Выполнить один SELECT (или WITH ... SELECT) к SQLite v_deals",
             "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}
         }},
         {"type": "function", "function": {
-            "name": "search_entity", "description": "Поиск компании, брокера или товара",
+            "name": "search_entity", "description": "Поиск компании, брокера или товара в справочниках",
             "parameters": {"type": "object", "properties": {
                 "kind": {"type": "string", "enum": ["company", "broker", "product"]},
                 "query": {"type": "string"}
@@ -387,20 +407,20 @@ def _ask_openai(question: str, history=None) -> dict:
     msgs.append({"role": "user", "content": question})
 
     trace, steps, answer = [], 0, None
-    max_key_attempts = max(1, openai_pool.count())
+    max_key_attempts = max(1, pool.count())
 
     while steps < MAX_STEPS:
         steps += 1
         resp = None
         for attempt in range(max_key_attempts):
-            current_key = openai_pool.get_current_key()
+            current_key = pool.get_current_key()
             try:
-                client = OpenAI(api_key=current_key)
-                resp = client.chat.completions.create(model=model_name, messages=msgs, tools=tools_openai, temperature=0.0)
+                client = OpenAI(api_key=current_key, base_url=base_url, timeout=40.0)
+                resp = client.chat.completions.create(model=model_name, messages=msgs, tools=tools_spec, temperature=0.0)
                 break
             except Exception as e:
                 if is_rate_limit_or_quota(e) and attempt < max_key_attempts - 1:
-                    openai_pool.rotate_key(str(e))
+                    pool.rotate_key(str(e))
                     continue
                 raise e
 
@@ -422,13 +442,27 @@ def _ask_openai(question: str, history=None) -> dict:
     return {"answer": answer, "trace": trace, "seconds": round(time.time() - t0, 1), "steps": steps}
 
 
+def _ask_openai(question: str, history=None) -> dict:
+    return _ask_openai_compatible(question, history, "openai")
+
+def _ask_groq(question: str, history=None) -> dict:
+    return _ask_openai_compatible(question, history, "groq")
+
+def _ask_openrouter(question: str, history=None) -> dict:
+    return _ask_openai_compatible(question, history, "openrouter")
+
+
 # ---------------- ОСНОВНАЯ ТОЧКА ВХОДА ----------------
 MODEL = os.environ.get("UZEX_MODEL", "auto")
 
 
 def ask(question: str, history=None) -> dict:
     provider = get_active_provider()
-    if provider == "gemini":
+    if provider == "groq":
+        return _ask_groq(question, history)
+    elif provider == "openrouter":
+        return _ask_openrouter(question, history)
+    elif provider == "gemini":
         return _ask_gemini(question, history)
     elif provider == "anthropic":
         return _ask_anthropic(question, history)
