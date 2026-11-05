@@ -81,9 +81,9 @@ brokers (broker_code, name, inn, region), usd_rates (date, rate — сум за 
   2. Результаты в USD (суммы, разница, % изменения)
   3. Количество сделок (сделок, разница, % изменения)
   4. Параметры и фильтры: даты сделок (от и до), тип контракта, статус
-  5. Asos / Основание: UZEX birja bitimlari reyestri (v_deals)
+  5. Asos / Основание: UZEX birja bitimlari reyestri
 - Числа разделяй пробелами (1 327; 2 621 400 340 149,90 UZS; 219 306 395,35 USD).
-- СТРОГО ЗАПРЕЩЕНО выводить в текст для пользователя технические имена колонок базы данных в скобках, такие как (deal_date, volume, amount_usd, is_export) или условия вида (is_export=1). Всегда пиши понятным человеческим языком: «Shartnoma turi: Eksport», «Asos: UZEX birja bitimlari reyestri (v_deals)».
+- СТРОГО ЗАПРЕЩЕНО выводить в текст для пользователя технические имена таблиц и колонок базы данных в скобках, такие как (v_deals), (deal_date, volume, amount_usd, is_export) или условия вида (is_export=1). Всегда пиши понятным человеческим языком: «Shartnoma turi: Eksport», «Asos: UZEX birja bitimlari reyestri».
 - Без лишней воды, без домыслов.
 """
 
@@ -242,11 +242,28 @@ def _clean_response(answer: str, lang: str) -> str:
         for pattern, rep in replacements:
             answer = re.sub(pattern, rep, answer)
         # Texnik SQL ustun nomlarini qavs ichida chiqarishni tozalash
-        answer = re.sub(r'\s*\(\s*(?:deal_date|amount_uzs|amount_usd|volume|is_export|year|deal_id|seller_inn|buyer_inn)[^)]*\)', '', answer)
+        answer = re.sub(r'\s*\(\s*(?:deal_date|amount_uzs|amount_usd|volume|is_export|year|deal_id|seller_inn|buyer_inn|v_deals)[^)]*\)', '', answer)
+        answer = re.sub(r'\s*\(\s*v_deals\s*\)', '', answer)
         answer = re.sub(r'\s*\(\s*is_export\s*=\s*1\s*\)', '', answer)
         answer = re.sub(r'\s*\(shu jumladan\s*[“"]?Аннулирован\(Не оплачен\)[”"]?\s*ham\)', ' (barcha ro‘yxatga olingan bitimlar)', answer)
         answer = re.sub(r'[“"]?Аннулирован\(Не оплачен\)[”"]?', 'bekor qilingan bitimlar', answer)
-        answer = re.sub(r'\bannulatsiyalangan\b', 'bekor qilingan', answer)
+        answer = re.sub(r'(?i)\bannulatsiyalangan\s+ham\s+kiradi\b', 'bekor qilingan bitimlar bilan birga', answer)
+        answer = re.sub(r'(?i)\bannulatsiyalangan\s+bo[\'l‘`]?magan\s+bitimlar\b', 'Amaldagi (bekor qilinmagan) bitimlar', answer)
+        answer = re.sub(r'(?i)\bannulatsiyalangan\s+bo[\'l‘`]?magan\b', 'bekor qilinmagan', answer)
+        answer = re.sub(r'(?i)\banullatsiyalangan\s+bo[\'l‘`]?magan\s+bitimlar\b', 'Amaldagi (bekor qilinmagan) bitimlar', answer)
+        answer = re.sub(r'(?i)\banullatsiyalangan\s+bo[\'l‘`]?magan\b', 'bekor qilinmagan', answer)
+        answer = re.sub(r'(?i)\bannulatsiyalangan\b', 'bekor qilingan', answer)
+        answer = re.sub(r'(?i)\banullatsiyalangan\b', 'bekor qilingan', answer)
+        answer = re.sub(r'(?i)\banullatsiya\b', 'bekor qilish', answer)
+        answer = re.sub(r'(?i)\bannulatsiya\b', 'bekor qilish', answer)
+
+        # Raqamlarni va valyutani chiroyli ajratish
+        answer = re.sub(r'(\d+)(UZS|USD|ta)', r'\1 \2', answer)
+        def _sep_large_int(m):
+            n = m.group(0)
+            s = n[::-1]
+            return ' '.join(s[i:i+3] for i in range(0, len(s), 3))[::-1]
+        answer = re.sub(r'\b\d{5,}\b', _sep_large_int, answer)
     elif lang == "uz_cyr":
         replacements = [
             (r'(?i)\bоснование\s*:\s*', '**Асос**: '),
@@ -288,9 +305,10 @@ def _system_text(lang: str = "uz_lat"):
             "2. USD bo'yicha: Har bir yil summasi (dollarda), mutlaq farq (+X USD) va foiz o'zgarishi (+X.XX%)\n"
             "3. Bitimlar soni: Har bir yil soni, mutlaq farq (+X ta) va foiz o'zgarishi (+X.XX%)\n"
             "4. Parametrlar va filtrlar: Haqiqiy bitim sanalari oralig'i (DD.MM.YYYY — DD.MM.YYYY), shartnoma turi (Eksport), holatlar (Barcha ro‘yxatga olingan bitimlar)\n"
-            "5. Asos: UZEX birja bitimlari reyestri (v_deals)\n\n"
+            "5. Asos: UZEX birja bitimlari reyestri\n\n"
             "QAT'IY TAQIQ (TEXNIK KODLAR VA USTUNLAR):\n"
-            "Foydalanuvchiga hech qachon texnik SQL ustun nomlarini qavs ichida YOZMA! (masalan: '(deal_date, volume, amount_usd, is_export)' yoki '(is_export=1)' kabi dasturchi kodlarini MATNDA ISHLATISH TAQIQLANADI!). Har doim sof inson tilida yoz!\n\n"
+            "Foydalanuvchiga hech qachon texnik SQL jadval va ustun nomlarini qavs ichida YOZMA! (masalan: '(v_deals)', '(deal_date, volume, amount_usd, is_export)' yoki '(is_export=1)' kabi dasturchi kodlarini MATNDA ISHLATISH TAQIQLANADI!). Har doim sof inson tilida yoz!\n"
+            "Bekor qilinmagan bitimlarni 'Amaldagi bitimlar' deb ata ('anullatsiyalangan' deb yozma!). Raqamlarni mingliklarini probel bilan yoz: 106 647 ta, 45 900 904 000 492,20 UZS.\n\n"
             "Lug'at:\n"
             "- 'Основание:' -> 'Asos:'\n"
             "- 'сделка' -> 'bitim'\n"
