@@ -1,0 +1,37 @@
+# Environment variables & secrets (MUHIM: Kalitlar gitga chiqmasligi shart!)
+.env
+.env.*
+!.env.example
+
+# Database (390+ MB li baza GitHub 100MB limitidan oshadi)
+uzex.db
+*.db
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Katta CSV ma'lumotlar arxivlari
+*.csv
+*.zip
+data/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Logs
+*.log
