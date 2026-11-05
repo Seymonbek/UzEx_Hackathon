@@ -173,7 +173,7 @@ async def execute_and_reply(update_or_query, text: str, chat_id: int, ctx: Conte
         await ctx.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
     # Preset savollarda eski tarix yuklanmaydi — bu javobni 3 barobar tezlashtiradi (~1.5-2s)
-    call_hist = [] if is_callback else ctx.chat_data.setdefault("h", [])[-2:]
+    call_hist = [] if is_callback else ctx.chat_data.setdefault("h", [])[-1:]
 
     try:
         res = await asyncio.to_thread(agent.ask, text[:2000], call_hist)
@@ -195,8 +195,9 @@ async def execute_and_reply(update_or_query, text: str, chat_id: int, ctx: Conte
     steps = res.get("steps", 1)
 
     hist = ctx.chat_data.setdefault("h", [])
-    hist.append((text, answer))
-    del hist[:-4]
+    short_ans = answer[:250] if len(answer) > 250 else answer
+    hist.append((text, short_ans))
+    del hist[:-2]
     _last_traces[chat_id] = res
 
     # Inline buttons under the result

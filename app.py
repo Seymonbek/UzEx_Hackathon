@@ -75,7 +75,8 @@ def ask(body: Ask):
         return JSONResponse({"error": f"{type(e).__name__}: {err_msg}"}, status_code=502)
 
     with _lock:
-        _hist[sid] = (h + [(q, r["answer"])])[-6:]
+        short_ans = r["answer"][:250] if len(r["answer"]) > 250 else r["answer"]
+        _hist[sid] = (h + [(q, short_ans)])[-2:]
         _hist.move_to_end(sid)
         while len(_hist) > 500:
             _hist.popitem(last=False)

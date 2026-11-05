@@ -87,7 +87,17 @@ brokers (broker_code, name, inn, region), usd_rates (date, rate — сум за 
 - Без лишней воды, без домыслов.
 """
 
-# ==================== KEY POOL / МУЛЬТИ-КЛЮЧИ ====================
+# ==================== KESHLANGAN HTTP/TCP MIJOZ (KEEP-ALIVE) ====================
+_client_cache = {}
+
+def _get_openai_client(api_key: str, base_url: str | None = None):
+    cache_key = (api_key, base_url)
+    if cache_key not in _client_cache:
+        import httpx
+        from openai import OpenAI
+        http_client = httpx.Client(timeout=22.0)
+        _client_cache[cache_key] = OpenAI(api_key=api_key, base_url=base_url, http_client=http_client)
+    return _client_cache[cache_key]
 class KeyPool:
     """Пул API-ключей с автоматической ротацией и отказоустойчивостью при 429 / Quota Exceeded."""
     def __init__(self, env_vars: list[str]):
@@ -212,6 +222,9 @@ def _clean_response(answer: str, lang: str) -> str:
     """Javobdagi qoldiq ruscha iboralar yoki noto'g'ri shakllarni tozalash."""
     if not answer:
         return answer
+    # Unicode bo'shliqlarni va chiziqchalarni tozalash (Windows terminal va platformalar uchun xavfsiz)
+    answer = answer.replace('\u202f', ' ').replace('\xa0', ' ').replace('\u200b', '')
+    answer = answer.replace('\u2011', '-').replace('\u2012', '-').replace('\u2013', '-').replace('\u2014', '-').replace('\u2212', '-')
     if lang == "uz_lat":
         replacements = [
             (r'(?i)\bоснование\s*:\s*', '**Asos**: '),
@@ -288,51 +301,39 @@ def _clean_response(answer: str, lang: str) -> str:
 
 
 def _system_text(lang: str = "uz_lat"):
-    ov = ds.db_overview()
-    f = ov["first_date"][8:] + "." + ov["first_date"][5:7] + "." + ov["first_date"][:4]
-    l = ov["last_date"][8:] + "." + ov["last_date"][5:7] + "." + ov["last_date"][:4]
-    base = SYSTEM.replace("{first}", f).replace("{last}", l)
-    
     if lang == "uz_lat":
-        base += (
-            "\n\nQAT'IY TIL VA JAVOB STANDARTI (O'ZBEK TILI, LOTIN ALIFBOSI):\n"
-            "Foydalanuvchi O'ZBEK tilida savol berdi. Javobingni 100% TO'LIQ O'ZBEK TILIDA (lotin alifbosida) berishing SHART!\n"
-            "Bitta ham ruscha so'z ('Основание', 'сделка', 'продавец', 'покупатель', 'выбран', 'самая ранняя', 'в реестре', 'г.', 'года', 'Подтверждающие данные', 'Даты сделок') ISHLATILMASIN!\n\n"
-            "TEZLIK: Barcha kerakli hisob-kitoblarni 1 TA SQL so'rovda ol! SQL natijasi kelishi bilan ikkinchi tool_call chaqirma, darhol yakuniy to'liq javobni shakllantir!\n\n"
-            "MUKAMMAL STRUKTURA VA QIYOSLASH (Eksport va yillik dinamika bo'yicha):\n"
-            "Agar savol eksport yoki yillik dinamika haqida bo'lsa, javobda har ikki valyutani (UZS va USD) hamda bitimlar sonini to'liq ko'rsat:\n"
-            "1. UZS bo'yicha: Har bir yil summasi (so'mda), mutlaq farq (+X UZS) va foiz o'zgarishi (+X.XX%)\n"
-            "2. USD bo'yicha: Har bir yil summasi (dollarda), mutlaq farq (+X USD) va foiz o'zgarishi (+X.XX%)\n"
-            "3. Bitimlar soni: Har bir yil soni, mutlaq farq (+X ta) va foiz o'zgarishi (+X.XX%)\n"
-            "4. Parametrlar va filtrlar: Haqiqiy bitim sanalari oralig'i (DD.MM.YYYY — DD.MM.YYYY), shartnoma turi (Eksport), holatlar (Barcha ro‘yxatga olingan bitimlar)\n"
-            "5. Asos: UZEX birja bitimlari reyestri\n\n"
-            "QAT'IY TAQIQ (TEXNIK KODLAR VA USTUNLAR):\n"
-            "Foydalanuvchiga hech qachon texnik SQL jadval va ustun nomlarini qavs ichida YOZMA! (masalan: '(v_deals)', '(deal_date, volume, amount_usd, is_export)' yoki '(is_export=1)' kabi dasturchi kodlarini MATNDA ISHLATISH TAQIQLANADI!). Har doim sof inson tilida yoz!\n"
-            "Bekor qilinmagan bitimlarni 'Amaldagi bitimlar' deb ata ('anullatsiyalangan' deb yozma!). Raqamlarni mingliklarini probel bilan yoz: 106 647 ta, 45 900 904 000 492,20 UZS.\n\n"
-            "Lug'at:\n"
-            "- 'Основание:' -> 'Asos:'\n"
-            "- 'сделка' -> 'bitim'\n"
-            "- 'сделки' -> 'bitimlar'\n"
-            "- 'продавец' -> 'sotuvchi'\n"
-            "- 'покупатель' -> 'xaridor'\n"
-            "- 'товар' -> 'mahsulot'\n"
-            "- 'в реестре' -> 'reyestrda'\n"
-            "- 'выбран' -> 'tanlandi'\n"
-            "- '2022г.' yoki '2022 года' -> '2022-yilda'\n"
-        )
+        return """Sen UZEX birjasining analitik AI-yordamchisisan. Savollarga 500 000 ta birja bitimi saqlangan SQLite bazasi (v_deals vitrinasi) asosida 100% O'ZBEK TILIDA (lotin) javob berasan.
+Har bir raqam va faktni FAQAT run_sql natijasidan ol, hech narsani to'qima!
+
+BAZA (v_deals vitrinasi):
+deal_id, deal_date (YYYY-MM-DD), year, month, quarter, trade_type, contract_type ('Внутренний'|'Экспортный', is_export 0/1), contract_form ('Спот'|'Форвард'|'Фьючерс'), volume, unit (тонна, килограмм, литр, штука, куб.метр), currency ('UZS'|'USD'), amount, amount_uzs, amount_usd, unit_price, unit_price_uzs, product_code, product_ru, product_uz, product_variant, sort_norm, class_norm, category, industry, region, region_ru, region_uz, seller_inn, seller_name, buyer_inn, buyer_name, seller_broker_name, buyer_broker_name, state ('Исполнен'|'Аннулирован(Не оплачен)' va boshqalar), is_annulled (0/1).
+Boshqa jadvallar: contracts, participants, brokers, products (product_code, product_ru, product_uz).
+Nomlarni izlash: lower(product_ru) LIKE '%...%' yoki search_entity.
+
+QOIDALAR:
+1. TEZLIK: Barcha kerakli hisob-kitoblarni 1 TA SQL so'rovda ol! Natijani olgach, qayta SQL chaqirma, darhol to'liq javob yoz.
+2. HISOBLASH STANDARTLARI:
+   - Eksport va yillik dinamika so'ralganda:
+     SELECT year, COUNT(*) AS deals, SUM(amount_uzs) AS sum_uzs, SUM(amount_usd) AS sum_usd FROM v_deals WHERE is_export=1 AND year IN (2024, 2025) GROUP BY year;
+     Javobda har doim ikkala valyutani va bitimlar sonini to'liq ko'rsat (UZS, USD, bitimlar soni, farq va % o'zgarish).
+   - Yillik bitimlar soni va summasi so'ralganda:
+     SELECT COUNT(*) as all_deals, SUM(amount_uzs) as all_uzs, SUM(CASE WHEN is_annulled=0 THEN 1 ELSE 0 END) as active_deals, SUM(CASE WHEN is_annulled=0 THEN amount_uzs ELSE 0 END) as active_uzs FROM v_deals WHERE year=2024;
+     Javobda ham Barcha ro'yxatga olingan bitimlar (jami), ham Bekor qilinmagan amaldagi bitimlar soni va summasini ko'rsat.
+3. TOZA USLUB:
+   - Javobda ruscha so'z ('Основание', 'сделка', 'продавец', 'покупатель', 'в реестре') ishlatma!
+   - Qavs ichida texnik SQL ustun yoki jadval nomlarini yozma: (v_deals), (deal_date, volume, amount_usd, is_export) yoki (is_export=1) kabi dasturchi kodlarini MATNDA ISHLATISH TAQIQLANADI!
+   - Bekor qilinmagan bitimlarni 'Amaldagi bitimlar' deb ata.
+   - Raqamlar mingliklarini probel bilan ajrat: 106 647 ta, 45 900 904 000 492,20 UZS, 219 306 395,35 USD.
+   - Asos qismida faqat: 'Asos: UZEX birja bitimlari reyestri.' deb yoz."""
     elif lang == "uz_cyr":
-        base += (
-            "\n\nҚАТЪИЙ ТИЛ ВА ЖАВОБ СТАНДАРТИ (ЎЗБЕК ТИЛИ, КИРИЛЛ АЛИФБОСИ):\n"
-            "Фойдаланувчи ЎЗБЕК тилида савол берди. Жавобингни 100% ТЎЛИҚ ЎЗБЕК ТИЛИДА (кирилл алифбосида) бер!\n"
-            "Бирорта ҳам русча сўз ('Основание', 'сделка', 'продавец', 'покупатель' ва ҳ.к.) ишлатма!\n"
-            "Экспорт ва йиллик динамикада UZS, USD ва битимлар сонини тўлиқ кўрсат. Охирида: **Асос**: ...\n"
-        )
-    elif lang == "ru":
-        base += (
-            "\n\nЯЗЫКОВОЕ ТРЕБОВАНИЕ (РУССКИЙ ЯЗЫК):\n"
-            "Вопрос задан на РУССКОМ языке. Твой ответ должен быть полностью на грамотном РУССКОМ языке.\n"
-            "Формат: при динамике экспорта обязательно покажи UZS, USD, количество сделок, даты и параметры, затем «Основание: ...».\n"
-        )
+        return """Сен UZEX биржасининг аналитик AI-ёрдамчисисан. Саволларга SQLite базаси (v_deals) асосида 100% ЎЗБЕК ТИЛИДА (кирилл) жавоб берасан.
+Ҳар бир сонни ФАҚАТ run_sql натижасидан ол. Барча ҳисобларни 1 та SQL сўровда бажар. Экспорт ва йиллик динамикада UZS, USD ва битимлар сонини кўрсат. Охирида: 'Асос: UZEX биржа битимлари реестри.'"""
+    else:
+        return """Ты — аналитический агент биржи UZEX по реестру 500 000 сделок (SQLite, витрина v_deals).
+Отвечай ТОЛЬКО на основе run_sql. Считай все метрики в ОДНОМ SQL-запросе!
+Для экспорта всегда показывай обе суммы: в UZS и USD, а также число сделок.
+Не пиши технические имена колонок в скобках. Разделяй тысячи пробелами.
+Основание: реестр биржевых сделок UZEX."""
     return base
 
 
@@ -589,8 +590,11 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
 
     lang = detect_lang(question)
     msgs = [{"role": "system", "content": _system_text(lang)}]
-    for q, a in (history or [])[-4:]:
-        msgs += [{"role": "user", "content": q}, {"role": "assistant", "content": a}]
+    # Tarixni ixcham saqlash (faqat oxirgi 1 ta savol-javob, javob esa 200 belgiga qisqartiriladi)
+    # Bu tokenlarni 80% ga kamaytiradi va javob tezligini 3-5 barobarga oshiradi!
+    for q, a in (history or [])[-1:]:
+        short_a = a[:200] + "..." if len(a) > 200 else a
+        msgs += [{"role": "user", "content": q}, {"role": "assistant", "content": short_a}]
     if lang == "uz_lat":
         user_content = f"[TALAB: Savol o'zbek tilida berildi. Javobni faqat O'ZBEK tilida ber! Asosni 'Asos: ...' deb yoz, 'Основание' yoki birorta ruscha so'z ishlatma!]\n{question}"
     elif lang == "uz_cyr":
@@ -602,6 +606,10 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
     trace, steps, answer = [], 0, None
     max_key_attempts = max(1, pool.count())
 
+    extra_kwargs = {}
+    if ("openai" in model_name or "gpt" in model_name) and provider_name == "groq":
+        extra_kwargs["reasoning_effort"] = "low"
+
     while steps < MAX_STEPS:
         steps += 1
         resp = None
@@ -609,13 +617,26 @@ def _ask_openai_compatible(question: str, history=None, provider_name: str = "op
         for attempt in range(max_key_attempts):
             current_key = pool.get_current_key()
             try:
-                client = OpenAI(api_key=current_key, base_url=base_url, timeout=40.0)
-                resp = client.chat.completions.create(model=model_name, messages=msgs, tools=tools_spec, temperature=0.0)
+                client = _get_openai_client(current_key, base_url)
+                resp = client.chat.completions.create(
+                    model=model_name,
+                    messages=msgs,
+                    tools=tools_spec,
+                    temperature=0.0,
+                    **extra_kwargs
+                )
                 break
             except Exception as e:
-                if is_rate_limit_or_quota(e) and attempt < max_key_attempts - 1:
-                    pool.rotate_key(str(e))
-                    continue
+                if is_rate_limit_or_quota(e):
+                    if attempt < max_key_attempts - 1:
+                        pool.rotate_key(str(e))
+                        continue
+                    # Agar hamma kalitlarda 120b limitga uchrasa, avtomatik 20b ga o'tamiz
+                    if "120b" in model_name:
+                        print(f"[{model_name}] Limit exceeded on all keys. Falling back to openai/gpt-oss-20b...")
+                        model_name = "openai/gpt-oss-20b"
+                        pool.rotate_key("fallback-20b")
+                        continue
                 raise e
 
         msg = resp.choices[0].message
