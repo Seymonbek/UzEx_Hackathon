@@ -277,6 +277,11 @@ def _clean_response(answer: str, lang: str) -> str:
             s = n[::-1]
             return ' '.join(s[i:i+3] for i in range(0, len(s), 3))[::-1]
         answer = re.sub(r'\b\d{5,}\b', _sep_large_int, answer)
+
+        # Agar javobda real natijalar (kompaniya, hajm, summa) mavjud bo'lsa, oxiridagi ziddiyatli "ma'lumot topilmadi" jumlalarini tozalash
+        if re.search(r'(?i)\b(?:kompaniya|stir|inn|jami|summasi|hajmi?)\b', answer) and re.search(r'\d+', answer):
+            answer = re.sub(r'(?i)\bBazada\s+(?:ko[\'l‘`]?rsatilgan|ushbu)\s+(?:filtrlar|parametrlar)\s+bo[\'l‘`]?yicha\s+ma[\'l‘`]?lumot\s+topilmadi\.?', '', answer).strip()
+            answer = re.sub(r'(?i)\bBazada\s+ushbu\s+parametrlar\s+bo[\'l‘`]?yicha\s+ma[\'l‘`]?lumot\s+topildi\.?', '', answer).strip()
     elif lang == "uz_cyr":
         replacements = [
             (r'(?i)\bоснование\s*:\s*', '**Асос**: '),
@@ -300,22 +305,117 @@ def _clean_response(answer: str, lang: str) -> str:
     return answer
 
 
+def _verify_anti_hallucination(answer: str, trace: list, lang: str) -> str:
+    """Tekshiruv: agar model feyk ma'lumot yoki to'qima sonlar yozgan bo'lsa, zudlik bilan to'xtatish."""
+    if not answer:
+        return answer
+
+    # 1. Soxta/namuna belgilari (feyk kompaniya yoki misol eslatmasi)
+    dummy_patterns = [
+        r'(?i)misol\s+sifatida\s+keltirilgan',
+        r'(?i)namuna\s+sifatida',
+        r'(?i)misol\s+uchun\s+keltirilgan',
+        r'(?i)\bxayoliy\b',
+        r'(?i)\bto[\'l‘`]?qima\b',
+        r'(?i)\bfaraziy\b',
+        r'(?i)\bпример\b',
+        r'(?i)иллюстраци[яи]',
+        r'(?i)PaxtaXom',
+        r'(?i)XomBroker',
+        r'1\s*234\s*567\s*890',
+        r'1234567890',
+    ]
+    for pat in dummy_patterns:
+        if re.search(pat, answer):
+            if lang == "uz_lat":
+                return "Asos: UZEX birja bitimlari reyestri.\n\nBazada ko‘rsatilgan filtr va parametrlar bo‘yicha hech qanday bitim topilmadi."
+            elif lang == "uz_cyr":
+                return "Асос: UZEX биржа битимлари реестри.\n\nБазада кўрсатилган фильтр ва параметрлар бўйича ҳеч қандай битим топилмади."
+            else:
+                return "Основание: реестр биржевых сделок UZEX.\n\nВ базе по указанным параметрам сделок не найдено."
+
+    # 2. SQL natijalaridagi barcha satr va sonlarni yig'ish (grounding check)
+    sql_had_rows = False
+    all_sql_tokens = set()
+    for t in trace:
+        if t.get("tool") == "run_sql":
+            out = t.get("output", {})
+            if isinstance(out, dict):
+                rows = out.get("rows", [])
+                if rows:
+                    sql_had_rows = True
+                    for r in rows:
+                        if isinstance(r, (list, tuple)):
+                            for val in r:
+                                if val is not None:
+                                    s_val = str(val).strip().lower()
+                                    all_sql_tokens.add(s_val)
+                                    all_sql_tokens.add(re.sub(r'\s+', '', s_val))
+
+    # Matndagi barcha 9 xonali INN (STIR) raqamlarini topish
+    clean_digits_str = re.sub(r'(\d)\s+(\d)', r'\1\2', answer)
+    inns_in_text = re.findall(r'\b\d{9}\b', clean_digits_str)
+
+    # Agar SQL hech qanday qator qaytarmagan bo'lsa, lekin javobda aniq STIR yoki kompaniya aytilsa:
+    if not sql_had_rows and inns_in_text:
+        if lang == "uz_lat":
+            return "Asos: UZEX birja bitimlari reyestri.\n\nBazada ko‘rsatilgan parametrlar bo‘yicha hech qanday bitim topilmadi."
+        elif lang == "uz_cyr":
+            return "Асос: UZEX биржа битимлари реестри.\n\nБазада кўрсатилган параметрлар бўйича ҳеч қандай битим топилмади."
+        else:
+            return "Основание: реестр биржевых сделок UZEX.\n\nВ базе по указанным параметрам сделок не найдено."
+
+    # Agar matnda biron STIR aytilgan bo'lsa, lekin u SQL javobida umuman bo'lmasa:
+    for inn in inns_in_text:
+        if inn in ("123456789", "987654321"):
+            if lang == "uz_lat":
+                return "Asos: UZEX birja bitimlari reyestri.\n\nBazada ko‘rsatilgan parametrlar bo‘yicha hech qanday bitim topilmadi."
+            elif lang == "uz_cyr":
+                return "Асос: UZEX биржа битимлари реестри.\n\nБазада кўрсатилган параметрлар бўйича ҳеч қандай битим топилмади."
+            else:
+                return "Основание: реестр биржевых сделок UZEX.\n\nВ базе по указанным параметрам данных не найдено."
+        if sql_had_rows and inn not in all_sql_tokens:
+            combined_tokens = " ".join(all_sql_tokens)
+            if inn not in combined_tokens:
+                if lang == "uz_lat":
+                    return "Asos: UZEX birja bitimlari reyestri.\n\nBazada ko‘rsatilgan filtrlar bo‘yicha ma’lumot topilmadi."
+                elif lang == "uz_cyr":
+                    return "Асос: UZEX биржа битимлари реестри.\n\nБазада кўрсатилган фильтрлар бўйича маълумот топилмади."
+                else:
+                    return "Основание: реестр биржевых сделок UZEX.\n\nВ базе по указанным фильтрам данных не найдено."
+
+    return answer
+
+
 def _system_text(lang: str = "uz_lat"):
     if lang == "uz_lat":
         return """Sen UZEX birjasining analitik AI-yordamchisisan. Savollarga 500 000 ta birja bitimi saqlangan SQLite bazasi (v_deals vitrinasi) asosida 100% O'ZBEK TILIDA (lotin) javob berasan.
 Har bir raqam va faktni FAQAT run_sql natijasidan ol, hech narsani to'qima!
 
 BAZA USTUNLARI (v_deals):
-- deal_id, deal_date (YYYY-MM-DD), year, month (1-12), quarter (1-4).
+- deal_id, deal_date (YYYY-MM-DD), year (2022-2026), month (1-12), quarter (1-4).
 - contract_form: FAQAT 'Спот', 'Форвард', 'Фьючерс' (kirillda! 'Spot' emas).
 - contract_type: 'Внутренний' yoki 'Экспортный' (is_export: 0 yoki 1).
 - sort_norm: mahsulot navi/sorti ('1', '2', '3', '4', 'высший'). Masalan, '1-sort' -> sort_norm='1' (trade_type EMAS!).
 - class_norm: tovar klassi ('1', '2', '3', '4').
 - trade_type: birja auksion turi ('Английский аукцион' va hk. Tovar navi emas!).
-- product_ru, product_uz: mahsulot nomi (masalan: lower(product_ru) LIKE '%хлопок-сырец%' yoki lower(product_uz) LIKE '%paxta%').
 - volume, unit (тонна, литр, куб.метр va hk), amount_uzs, amount_usd, unit_price_uzs.
 - buyer_inn, buyer_name, seller_inn, seller_name, buyer_broker_name, seller_broker_name.
 - state, is_annulled (0 - amaldagi, 1 - bekor qilingan).
+
+MAHSULOTLARNI IZLASH (product_ru yoki product_uz):
+- Paxta xom ashyosi: (lower(product_ru) LIKE '%хлопок-сырец%' OR lower(product_uz) LIKE '%paxta%')
+- Sement: (lower(product_ru) LIKE '%цемент%' OR lower(product_uz) LIKE '%sement%')
+- Bug'doy: (lower(product_ru) LIKE '%пшениц%' OR lower(product_uz) LIKE '%bug%doy%')
+- Shakar: (lower(product_ru) LIKE '%сахар%' OR lower(product_uz) LIKE '%shakar%')
+- Benzin: (lower(product_ru) LIKE '%бензин%' OR lower(product_uz) LIKE '%benzin%')
+- Dizel / Mazut: (lower(product_ru) LIKE '%дизель%' OR lower(product_uz) LIKE '%dizel%')
+- Un: (lower(product_ru) LIKE '%мука%' OR lower(product_uz) LIKE '%un%')
+- Yog': (lower(product_ru) LIKE '%масло%' OR lower(product_uz) LIKE '%yog%')
+- Gaz: (lower(product_ru) LIKE '%газ%' OR lower(product_uz) LIKE '%gaz%')
+- Armatura / Po'lat: (lower(product_ru) LIKE '%арматур%' OR lower(product_uz) LIKE '%armatura%')
+- Polietilen: (lower(product_ru) LIKE '%полиэтилен%' OR lower(product_uz) LIKE '%polietilen%')
+- Mis: (lower(product_ru) LIKE '%мед%' OR lower(product_uz) LIKE '%mis%')
 
 QOIDALAR:
 1. TEZLIK: Barcha kerakli hisob-kitoblarni 1 TA SQL so'rovda ol! Natijani olgach, darhol to'liq javob yoz.
@@ -330,8 +430,11 @@ QOIDALAR:
      tot AS (SELECT SUM(volume) AS grand_volume FROM f)
      SELECT buyer_inn, buyer_name, SUM(volume) AS total_volume, COUNT(*) AS deal_count, COUNT(DISTINCT seller_inn) AS seller_distinct, buyer_broker_name, ROUND(SUM(volume)*100.0/(SELECT grand_volume FROM tot), 2) AS pct_of_total
      FROM f GROUP BY buyer_inn, buyer_name, buyer_broker_name ORDER BY total_volume DESC LIMIT 1;
-3. GALLYUTSINATSIYA VA SOXTA MISOL MUTLAQO TAQIQLANADI:
-   Hech qachon soxta STIR, soxta kompaniya (masalan, 'PaxtaXom Ogli', '1234567890') to'qima! 'Raqamlar misol sifatida keltirilgan' deb yozish QAT'IYAN MAN ETILADI! Faqat bazadagi real faktlarni yoz. Agar topilmasa, 'Bazada ushbu parametrlar bo'yicha ma'lumot topilmadi' deb ayt.
+3. NOL GALLYUTSINATSIYA VA QAT'IY ANIQ FAKTLAR:
+   - Hech qachon xayoliy kompaniya, soxta STIR (masalan, '1234567890') to'qima!
+   - Faqat va faqat run_sql natijasidagi real faktlarni yoz.
+   - Agar run_sql natijasida ma'lumot topilsa, faqat topilgan natijalarni ko'rsat.
+   - FAQAT agar SQL 0 qator qaytarsa yoki so'ralgan ma'lumot bazada umuman bo'lmasa, 'Bazada ushbu parametrlar bo'yicha ma'lumot topilmadi.' deb javob ber.
 4. TOZA USLUB:
    - Ruscha so'z ('Основание', 'сделка', 'продавец', 'покупатель', 'в реестре') ishlatma.
    - Qavs ichida texnik SQL ustun yoki jadval nomlarini yozma: (v_deals), (is_export=1) kabilar TAQIQLANADI!
@@ -339,11 +442,17 @@ QOIDALAR:
    - Asos: 'Asos: UZEX birja bitimlari reyestri.' deb yoz."""
     elif lang == "uz_cyr":
         return """Сен UZEX биржасининг аналитик AI-ёрдамчисисан. Саволларга SQLite базаси (v_deals) асосида 100% ЎЗБЕК ТИЛИДА (кирилл) жавоб берасан.
-Ҳар бир сонни ФАҚАТ run_sql натижасидан ол. Барча ҳисобларни 1 та SQL сўровда бажар. Экспорт ва йиллик динамикада UZS, USD ва битимлар сонини кўрсат. Охирида: 'Асос: UZEX биржа битимлари реестри.'"""
+Ҳар бир сонни ФАҚАТ run_sql натижасидан ол, ҳеч нарса тўқима!
+contract_form: 'Спот', 'Форвард', 'Фьючерс'. sort_norm: '1', '2', '3', 'высший'. quarter: 1-4.
+Барча ҳисобларни 1 та SQL сўровда бажар. Экспорт ва йиллик динамикада UZS, USD ва битимлар сонини кўрсат.
+Сохта рақам ёки 'мисол сифатида' деб ёзиш қатъиян тақиқланади. Топилмаса: 'Базада маълумот топилмади.' деб айт.
+Охирида: 'Асос: UZEX биржа битимлари реестри.'"""
     else:
         return """Ты — аналитический агент биржи UZEX по реестру 500 000 сделок (SQLite, витрина v_deals).
 Отвечай ТОЛЬКО на основе run_sql. Считай все метрики в ОДНОМ SQL-запросе!
+contract_form: 'Спот', 'Форвард', 'Фьючерс'. sort_norm: '1', '2', '3', 'высший'. quarter: 1-4.
 Для экспорта всегда показывай обе суммы: в UZS и USD, а также число сделок.
+СТРОГО ЗАПРЕЩЕНО выдумывать примеры, фейковые ИНН или писать 'в качестве примера'. Если данных нет, отвечай: 'В базе по указанным параметрам данных не найдено.'
 Не пиши технические имена колонок в скобках. Разделяй тысячи пробелами.
 Основание: реестр биржевых сделок UZEX."""
     return base
@@ -695,14 +804,19 @@ MODEL = os.environ.get("UZEX_MODEL", "auto")
 def ask(question: str, history=None) -> dict:
     provider = get_active_provider()
     if provider == "groq":
-        return _ask_groq(question, history)
+        res = _ask_groq(question, history)
     elif provider == "openrouter":
-        return _ask_openrouter(question, history)
+        res = _ask_openrouter(question, history)
     elif provider == "gemini":
-        return _ask_gemini(question, history)
+        res = _ask_gemini(question, history)
     elif provider == "anthropic":
-        return _ask_anthropic(question, history)
+        res = _ask_anthropic(question, history)
     elif provider == "openai":
-        return _ask_openai(question, history)
+        res = _ask_openai(question, history)
     else:
         raise ValueError(f"Неизвестный провайдер: {provider}")
+
+    lang = detect_lang(question)
+    res["answer"] = _clean_response(res.get("answer", ""), lang)
+    res["answer"] = _verify_anti_hallucination(res.get("answer", ""), res.get("trace", []), lang)
+    return res
