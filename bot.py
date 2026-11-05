@@ -8,7 +8,7 @@ import os, re, html, asyncio, logging, sys
 sys.stdout.reconfigure(encoding="utf-8")
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    ReplyKeyboardMarkup, KeyboardButton
+    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, MenuButtonWebApp
 )
 from telegram.constants import ChatAction, ParseMode
 from telegram.ext import (
@@ -26,22 +26,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger("uzex_bot")
 
+WEBAPP_URL = os.environ.get("UZEX_WEBAPP_URL", "https://code-health-ambien-essex.trycloudflare.com")
+
 HELLO = (
     "🇺🇿 <b>Assalomu alaykum! Men UZEX birja bitimlari AI-agentiman.</b>\n\n"
     "Men O'zbekiston Respublika tovar-xom ashyo birjasining <b>500 000 ta</b> bitimdan iborat reyestri (2022–2026) "
     "bo'yicha o'zbek va rus tillaridagi savollaringizga <b>faqat ma'lumotlar asosida</b> aniq javob beraman.\n\n"
     "🇷🇺 <i>Здравствуйте! Я аналитический агент биржи UZEX (500 000 сделок, 2022–2026). "
     "Отвечаю точно и только по данным реестра.</i>\n\n"
-    "📌 <b>Asosiy buyruqlar / Команды:</b>\n"
-    "• /sql — Oxirgi javobning hisoblash asosi (SQL)\n"
-    "• /stat — Ma'lumotlar bazasi va tizim holati\n"
-    "• /clear — Suhbat tarixini tozalash\n"
-    "• /help — Yordam va ko'rsatmalar\n\n"
-    "<i>Quyidagi namunaviy savollardan birini tanlang yoki o'z savolingizni yozing:</i>"
+    "📌 <b>Asosiy imkoniyatlar:</b>\n"
+    "• <b>Matnli savol:</b> Xohlagan savolingizni to'g'ridan-to'g'ri yozing (o'zbek yoki rus tilida)\n"
+    "• <b>🌐 Web App:</b> Pastdagi tugma orqali to'liq qulay vizual interfeysni oching\n"
+    "• <b>🔍 Asos (SQL):</b> Har bir javob ostida hisoblash so'rovi shaffof ko'rsatiladi\n\n"
+    "<i>Quyidagi namunaviy savollardan birini tanlang yoki Web Appni oching:</i>"
 )
 
 SAMPLE_KEYBOARD = ReplyKeyboardMarkup(
     [
+        [KeyboardButton("🌐 Web App (Grafik interfeys)", web_app=WebAppInfo(url=WEBAPP_URL))],
         [KeyboardButton("2024-yilda nechta bitim tuzilgan va summasi qancha?")],
         [KeyboardButton("Какой товар принёс наибольшую сумму в 2025 году?")],
         [KeyboardButton("Eng ko'p xarid qilgan kompaniya kim (STIR bilan)?")],
@@ -62,7 +64,17 @@ def format_tg_html(text: str) -> str:
 
 
 async def start_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    inline_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📱 Web Appni ochish (Interfeys)", web_app=WebAppInfo(url=WEBAPP_URL))],
+        [InlineKeyboardButton("📊 Baza statistikasi", callback_data="btn_stat"),
+         InlineKeyboardButton("ℹ️ Yordam", callback_data="btn_help")]
+    ])
     await update.message.reply_text(HELLO, parse_mode=ParseMode.HTML, reply_markup=SAMPLE_KEYBOARD)
+    await update.message.reply_text(
+        "👇 <i>Telegram ichida to'liq grafik veb-interfeysda ishlash uchun quyidagi tugmani bosing:</i>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=inline_kb
+    )
 
 
 async def help_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -143,6 +155,28 @@ async def inline_button_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
             f"🔍 <b>Hisoblash asosi va bajarilgan SQL:</b>\n\n{msg_body[:4000]}",
             parse_mode=ParseMode.HTML
         )
+    elif query.data == "btn_stat":
+        ov = ds.db_overview()
+        prov = agent.get_active_provider()
+        keys_count = getattr(agent, f"{prov}_pool").count() if hasattr(agent, f"{prov}_pool") else 1
+        stat_text = (
+            f"📊 <b>Baza va Tizim Statistikasi:</b>\n\n"
+            f"• <b>Jami bitimlar:</b> {ov.get('deals', 500000):,} ta\n"
+            f"• <b>Qamrov davri:</b> {ov.get('first_date')} — {ov.get('last_date')}\n"
+            f"• <b>Ma'lumotlar bazasi:</b> SQLite (uzex.db, ~392 MB, Indekslangan)\n"
+            f"• <b>AI Provayder:</b> {prov.upper()} ({agent.MODEL})\n"
+            f"• <b>Faol API kalitlar zaxirasi (Pool):</b> {keys_count} ta\n"
+            f"• <b>Xavfsizlik:</b> Read-Only (SQLITE_SELECT only, C-level)"
+        )
+        await query.message.reply_text(stat_text, parse_mode=ParseMode.HTML)
+    elif query.data == "btn_help":
+        help_text = (
+            "💡 <b>Qisqa qo'llanma:</b>\n\n"
+            "• Savolingizni o'zbek yoki rus tilida matn ko'rinishida yozing.\n"
+            "• Yoki '🌐 Web App' tugmasini bosib, qulay vizual interfeysda ishlang.\n"
+            "• Har bir javob ostida '🔍 Asos: SQL' tugmasi orqali hisoblash kodini ko'rishingiz mumkin."
+        )
+        await query.message.reply_text(help_text, parse_mode=ParseMode.HTML)
 
 
 async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -195,7 +229,17 @@ def main():
         sys.exit(1)
 
     print(f"🚀 Telegram Bot ishga tushmoqda... Token: {token[:8]}...")
-    app = Application.builder().token(token).concurrent_updates(True).build()
+    
+    async def post_init(application: Application):
+        try:
+            await application.bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(text="🌐 Web App", web_app=WebAppInfo(url=WEBAPP_URL))
+            )
+            logger.info("Chat menu button set to WebApp: %s", WEBAPP_URL)
+        except Exception as e:
+            logger.warning("Could not set chat menu button: %s", e)
+
+    app = Application.builder().token(token).concurrent_updates(True).post_init(post_init).build()
     
     app.add_handler(CommandHandler(["start"], start_command))
     app.add_handler(CommandHandler(["help"], help_command))

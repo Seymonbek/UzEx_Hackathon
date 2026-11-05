@@ -2,8 +2,13 @@
 <html lang="uz">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0C1033">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>UZEX AI-Agent · Birja Bitimlari Tahlili 2022–2026</title>
+<!-- Telegram WebApp SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,18 +30,31 @@
   --err: #FF5A65;
   --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: var(--bg); color: var(--text-main); font-family: var(--font-main); font-size: 15px; line-height: 1.55; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 15px;
+  line-height: 1.55;
+  overflow: hidden;
+}
 
 .app {
   max-width: 960px;
   margin: 0 auto;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 0 18px;
+  padding: var(--sat) max(14px, var(--sar)) 0 max(14px, var(--sal));
 }
 
 /* Header */
@@ -370,6 +388,125 @@ textarea.input-box:focus {
   color: #fff;
   border-color: var(--peri);
 }
+
+@media (max-width: 640px) {
+  .app {
+    padding-left: max(10px, var(--sal));
+    padding-right: max(10px, var(--sar));
+  }
+  header {
+    padding: 10px 0 8px;
+    gap: 8px;
+  }
+  .brand-logo {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+    border-radius: 6px;
+  }
+  .brand-title h1 {
+    font-size: 0.98rem;
+  }
+  .brand-title p {
+    font-size: 0.72rem;
+  }
+  .badges {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 2px;
+    gap: 5px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .badges::-webkit-scrollbar { display: none; }
+  .badge {
+    font-size: 0.68rem;
+    padding: 3px 6px;
+  }
+  .welcome-card {
+    padding: 14px 12px;
+    margin-bottom: 14px;
+    border-radius: 10px;
+  }
+  .welcome-card h2 {
+    font-size: 1.05rem;
+  }
+  .welcome-card p {
+    font-size: 0.82rem;
+    margin-bottom: 10px;
+  }
+  .rules-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .rule-item {
+    font-size: 0.78rem;
+    padding: 6px 10px;
+  }
+  .prompt-chips {
+    gap: 6px;
+  }
+  .chip {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    min-height: 40px;
+  }
+  main {
+    padding: 10px 0;
+  }
+  .msg {
+    margin-bottom: 14px;
+  }
+  .msg-user .bubble {
+    max-width: 90%;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+  }
+  .msg-agent .bubble {
+    max-width: 100%;
+    padding: 12px 12px;
+  }
+  .msg-agent .answer-text {
+    font-size: 0.88rem;
+  }
+  .msg-meta {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.70rem;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+  details.basis summary {
+    padding: 7px 10px;
+    font-size: 0.72rem;
+  }
+  details.basis pre {
+    padding: 8px 10px;
+    font-size: 0.70rem;
+  }
+  form.chat-input {
+    padding: 8px 0 max(10px, var(--sab));
+    gap: 6px;
+  }
+  textarea.input-box {
+    padding: 9px 12px;
+    font-size: 0.88rem;
+    min-height: 42px;
+  }
+  .btn-send {
+    height: 42px;
+    padding: 0 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .btn-clear {
+    height: 42px;
+    padding: 0 8px;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+}
 </style>
 </head>
 <body>
@@ -441,6 +578,27 @@ const chatForm = document.getElementById('chat-form');
 const btnReset = document.getElementById('btn-reset');
 const welcomeCard = document.getElementById('welcome-card');
 let currentSession = localStorage.getItem('uzex_session') || null;
+
+// Telegram WebApp Integration
+if (window.Telegram && window.Telegram.WebApp) {
+  try {
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+    if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor('#0C1033');
+    if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor('#0C1033');
+  } catch (err) {
+    console.warn('Telegram WebApp init error:', err);
+  }
+}
+
+// Mobile viewport resize & keyboard handling
+window.addEventListener('resize', () => {
+  scrollToBottom();
+});
+userInput.addEventListener('focus', () => {
+  setTimeout(scrollToBottom, 250);
+});
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
