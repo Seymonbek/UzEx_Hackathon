@@ -1001,22 +1001,21 @@ async function handleQuestion(question) {
 
     let basisHtml = '';
     if (data.basis && data.basis.length > 0) {
-      const basisItems = data.basis.map(b => {
-        let inputStr = b.input.query || JSON.stringify(b.input, null, 2);
-        let resStr = b.error ? `⚠️ Xatolik: ${b.error}` : 
-                     (b.rows !== null ? `✓ Qatorlar soni: ${b.rows}` : (b.matches !== null ? `✓ Topildi: ${b.matches}` : '✓ Bajarildi'));
-        return `[Asbob: ${b.tool}]\n${inputStr}\n➜ ${resStr}`;
-      }).join('\n\n');
-
-      basisHtml = `
-        <details class="basis">
-          <summary>
-            <span>🔍 Asos: Bajarilgan SQL so'rovi</span>
-            <span>Ochish ▼</span>
-          </summary>
-          <pre>${escapeHtml(basisItems)}</pre>
-        </details>
-      `;
+      const sqlQueries = data.basis
+        .filter(b => b.input && b.input.query)
+        .map(b => b.input.query);
+      
+      if (sqlQueries.length > 0) {
+        basisHtml = `
+          <details class="basis" style="margin-top: 10px; opacity: 0.88;">
+            <summary style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; cursor: pointer; font-size: 0.74rem; color: var(--peri);">
+              <span>🛡️ Bajarilgan SQL so'rovi (Texnik asos)</span>
+              <span style="font-size: 0.70rem; color: var(--neon);">Ko‘rish ▼</span>
+            </summary>
+            <pre style="margin: 0; padding: 10px 12px; background: rgba(8, 12, 38, 0.95); font-size: 0.72rem; color: #93C5FD; border-radius: 0 0 6px 6px; overflow-x: auto;"><code>${escapeHtml(sqlQueries.join('\n\n'))}</code></pre>
+          </details>
+        `;
+      }
     }
 
     const agentDiv = document.createElement('div');

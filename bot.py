@@ -346,16 +346,15 @@ async def inline_button_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         
         basis_parts = []
         for t in tr:
-            tool_name = t.get("tool", "")
             tool_input = t.get("input", {})
             tool_out = t.get("output", {})
             q_text = tool_input.get("query") or str(tool_input)
             rows_cnt = tool_out.get("row_count", 0) if isinstance(tool_out, dict) else 0
-            basis_parts.append(f"<b>[{tool_name}]</b>\n<code>{html.escape(q_text)}</code>\n➜ Qatorlar: <b>{rows_cnt}</b>")
+            basis_parts.append(f"<code>{html.escape(q_text)}</code>\n<i>(Natija: {rows_cnt} ta qator)</i>")
 
         msg_body = "\n\n".join(basis_parts)
         await query.message.reply_text(
-            f"🔍 <b>Hisoblash asosi va bajarilgan SQL:</b>\n\n{msg_body[:4000]}",
+            f"🛡️ <b>Bajarilgan rasmiy SQL so'rovi:</b>\n\n{msg_body[:4000]}",
             parse_mode=ParseMode.HTML
         )
     elif data == "btn_stat":
