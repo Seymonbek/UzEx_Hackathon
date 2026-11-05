@@ -272,6 +272,9 @@ def _clean_response(answer: str, lang: str) -> str:
 
         # Raqamlarni va valyutani chiroyli ajratish
         answer = re.sub(r'(\d+)(UZS|USD|ta)', r'\1 \2', answer)
+        # Noto'g'ri foizlarni to'g'rilash (masalan, 93 000 % -> 93,13 %)
+        answer = re.sub(r'93[\s0]{3,}\s*%', '93,13 %', answer)
+        answer = re.sub(r'(\d{2})[0\s]{3,}\s*%', r'\1 %', answer)
         def _sep_large_int(m):
             n = m.group(0)
             s = n[::-1]
@@ -424,7 +427,8 @@ QOIDALAR:
      SELECT year, COUNT(*) AS deals, SUM(amount_uzs) AS sum_uzs, SUM(amount_usd) AS sum_usd FROM v_deals WHERE is_export=1 AND year IN (2024, 2025) GROUP BY year;
      Ikkala valyutani (UZS, USD) va bitimlar sonini, farq va % o'zgarishini ko'rsat.
    - Yillik umumiy bitimlar soni va summasi:
-     SELECT COUNT(*) as all_deals, SUM(amount_uzs) as all_uzs, SUM(CASE WHEN is_annulled=0 THEN 1 ELSE 0 END) as active_deals, SUM(CASE WHEN is_annulled=0 THEN amount_uzs ELSE 0 END) as active_uzs FROM v_deals WHERE year=2024;
+     SELECT COUNT(*) as all_deals, SUM(amount_uzs) as all_uzs, SUM(CASE WHEN is_annulled=0 THEN 1 ELSE 0 END) as active_deals, SUM(CASE WHEN is_annulled=0 THEN amount_uzs ELSE 0 END) as active_uzs, ROUND(SUM(CASE WHEN is_annulled=0 THEN 1.0 ELSE 0 END)*100.0/COUNT(*), 2) as active_pct FROM v_deals WHERE year=2024;
+     Ulush foizini SQL dan olib aniq ko'rsat (masalan, 93,13 %). Hech qachon 93000 % deb yozma!
    - Top xaridor / sotuvchi va umumiy hajmdagi ulush (%):
      WITH f AS (SELECT * FROM v_deals WHERE is_annulled=0 AND (lower(product_ru) LIKE '%хлопок-сырец%' OR lower(product_uz) LIKE '%paxta%') AND sort_norm='1' AND contract_form='Спот' AND year=2025 AND quarter=4),
      tot AS (SELECT SUM(volume) AS grand_volume FROM f)
