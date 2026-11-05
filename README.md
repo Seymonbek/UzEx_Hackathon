@@ -135,6 +135,7 @@ Baza mustaqil hisob-kitoblar bilan tekshirilgan va barcha etalon ko'rsatkichlarg
 Prototip ikkita qulay kanal orqali ishlaydi:
 
 1. **Telegram-bot (`bot.py`):**
+   * **Rasmiy bot havolasi:** [@UzEx_Hackathon_bot](https://t.me/UzEx_Hackathon_bot)
    * O'zbek va rus tillarida tabiiy muloqot.
    * `/sql` buyrug'i — oxirgi berilgan javob aynan qaysi SQL so'rovi va filtrlar orqali hisoblanganini isbotlab beradi.
 2. **Veb-servis (`app.py` + `static/index.html`):**
