@@ -1,0 +1,22 @@
+# /etc/systemd/system/uzex.service
+# Ishga tushirish:
+#   sudo cp uzex.service.example /etc/systemd/system/uzex.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now uzex
+#   sudo systemctl status uzex
+
+[Unit]
+Description=UZEX AI Hackathon Service (Web App + Bot)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/UzEx_Hackathon/uzex_agent
+ExecStart=/home/ubuntu/UzEx_Hackathon/uzex_agent/start.sh
+Restart=always
+RestartSec=5
+EnvironmentFile=/home/ubuntu/UzEx_Hackathon/uzex_agent/.env
+
+[Install]
+WantedBy=multi-user.target
